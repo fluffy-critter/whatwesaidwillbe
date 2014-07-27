@@ -13,15 +13,19 @@ struct Buffer {
     size_t frames;
     int minVal, maxVal;
 
-    Buffer(size_t size): data(size, 0), frames(0) {}
+    Buffer(size_t frameCount, size_t channels): data(frameCount*channels, 0),
+                                                frames(frameCount),
+                                                minVal(-1),
+                                                maxVal(1)
+    {}
 };
 
 int main(int argc, char *argv[]) {
 	int target = 1024;
-	int dampen = 900;
-	int rate = 44100;
-	int bufSize = 2048;
-    int channels = 2;
+	unsigned int dampen = 900;
+	unsigned int rate = 44100;
+	size_t bufSize = 2048;
+    const size_t channels = 2;
     float loopDelay = 10.0;
 	std::string captureDevice = "default";
 	std::string playbackDevice = "default";
@@ -30,9 +34,9 @@ int main(int argc, char *argv[]) {
 	desc.add_options()
         ("help,h", "show this help")
 		("target,t", po::value<int>(&target)->default_value(target), "target feedback level (1024 = 100%)")
-		("dampen,d", po::value<int>(&dampen)->default_value(dampen), "dampening factor (0-1024)")
-		("rate,r", po::value<int>(&rate)->default_value(rate), "sampling rate")
-		("bufSize,k", po::value<int>(&bufSize)->default_value(bufSize), "buffer size")
+		("dampen,d", po::value<unsigned int>(&dampen)->default_value(dampen), "dampening factor (0-1024)")
+		("rate,r", po::value<unsigned int>(&rate)->default_value(rate), "sampling rate")
+		("bufSize,k", po::value<size_t>(&bufSize)->default_value(bufSize), "buffer size")
 		("loopDelay,c", po::value<float>(&loopDelay)->default_value(loopDelay), "loop delay, in seconds")
 		("capture", po::value<std::string>(&captureDevice)->default_value(captureDevice), "ALSA capture device")
 		("playback", po::value<std::string>(&playbackDevice)->default_value(playbackDevice), "ALSA playback device")
@@ -51,7 +55,7 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-    const int bufCount = rate*loopDelay/bufSize;
+    const size_t bufCount = rate*loopDelay/bufSize;
 
 	snd_pcm_t *capture, *playback;
 
@@ -61,9 +65,11 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
+    const int latency = 1000000*bufSize/rate;
+
 	if ((err = snd_pcm_set_params(capture,
                                   SND_PCM_FORMAT_S16, SND_PCM_ACCESS_RW_INTERLEAVED,
-                                  channels, rate, 1, 100000)) < 0) {
+                                  channels, rate, 1, latency)) < 0) {
 		std::cerr << "Couldn't configure " << captureDevice << " for capture: " << snd_strerror(err) << std::endl;
         return 1;
     }
@@ -75,13 +81,23 @@ int main(int argc, char *argv[]) {
 
 	if ((err = snd_pcm_set_params(playback,
                                   SND_PCM_FORMAT_S16, SND_PCM_ACCESS_RW_INTERLEAVED,
-                                  channels, rate, 1, 100000)) < 0) {
+                                  channels, rate, 1, latency)) < 0) {
 		std::cerr << "Couldn't configure " << captureDevice << " for capture: " << snd_strerror(err) << std::endl;
         return 1;
     }
 
-    std::vector<Buffer> buffers(bufCount, Buffer(bufSize*channels));
-    Buffer outBuf(bufSize*channels);
+    std::vector<Buffer> buffers(bufCount, Buffer(bufSize, channels));
+    Buffer outBuf(bufSize, channels);
+
+    // White noise for initial calibration
+    for (size_t i = 0; i < bufCount; i++) {
+        Buffer &buf = buffers[i];
+        for (size_t j = 0; j < bufSize*channels; j++) {
+            buf.data[j] = (rand()&32767) - 16384;
+        }
+        buf.minVal = -16384;
+        buf.maxVal = 16383;
+    }
 
     size_t recPos = 0;
 
@@ -93,14 +109,15 @@ int main(int argc, char *argv[]) {
             int maxGain = std::min((32767 << FP_SHIFT)/playBuf.maxVal,
                                    (-32768 << FP_SHIFT)/playBuf.minVal);
 
-            tgtGain = std::min(tgtGain, maxGain);
+            tgtGain = std::min(tgtGain, std::max(1, maxGain));
 
             int startGain = curGain;
-            int gainStep = (tgtGain - curGain)/playBuf.frames/channels;
+            int gainStep = tgtGain - curGain;
 
             for (size_t i = 0; i < playBuf.frames*channels; i++) {
                 outBuf.data[i] = std::max(-32768, std::min(32767, (playBuf.data[i]*curGain) >> FP_SHIFT));
-                curGain += gainStep;
+                // standard fixedpoint increment isn't working right, let's waste some CPU
+                curGain = startGain + gainStep/playBuf.frames/channels;
             }
 
             int frames;
@@ -133,10 +150,10 @@ int main(int argc, char *argv[]) {
         std::cerr << "recorded " << frames << " frames to position " << recPos;
         recBuf.frames = frames;
 
-        int16_t minVal = -1, maxVal = 1;
+        int minVal = -1, maxVal = 1;
         for (size_t i = 0; i < recBuf.frames*channels; i++) {
-            minVal = std::min(minVal, recBuf.data[i]);
-            maxVal = std::max(maxVal, recBuf.data[i]);
+            minVal = std::min(minVal, static_cast<int>(recBuf.data[i]));
+            maxVal = std::max(maxVal, static_cast<int>(recBuf.data[i]));
         }
         recBuf.minVal = minVal;
         recBuf.maxVal = maxVal;
