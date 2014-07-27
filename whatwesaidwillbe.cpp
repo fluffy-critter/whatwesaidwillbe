@@ -5,7 +5,7 @@
 
 namespace po = boost::program_options;
 
-static const int FP_SHIFT = 14;
+static const int FP_SHIFT = 15;
 
 struct Buffer {
     typedef std::vector<int16_t> Storage;
@@ -21,11 +21,11 @@ struct Buffer {
 };
 
 int main(int argc, char *argv[]) {
-	int target = 16383, feedback = 1024;
+	int target = 16383, feedback = 512;
     enum {
         P_TARGET,
         P_FEEDBACK
-    } mode = P_TARGET;
+    } mode = P_FEEDBACK;
 
 	unsigned int dampen = 256;
 	unsigned int rate = 44100;
@@ -177,12 +177,19 @@ int main(int argc, char *argv[]) {
         case P_TARGET: {
             int tgtMax = (target << FP_SHIFT)/recBuf.maxVal;
             int tgtMin = ((-target - 1) << FP_SHIFT)/recBuf.minVal;
-            nextGain = std::min(tgtMax, tgtMin);
+            nextGain = std::max(tgtMax, tgtMin);
             break;
         }
         case P_FEEDBACK: {
-            int matchMax = std::max(1, (playBuf.maxVal << FP_SHIFT)/recBuf.maxVal*target/1024);
-            int matchMin = std::max(1, (playBuf.minVal << FP_SHIFT)/recBuf.minVal*target/1024);
+            // figure out which playback buffer was being recorded, due to latency
+            int samplesAgo = latency*2*rate/1000000;
+            int buffersAgo = samplesAgo/bufSize;
+            const Buffer& reflected = buffers[(recPos + bufCount - buffersAgo)%bufCount];
+
+            std::cerr << " rec=" << recBuf.maxVal << " play=" << reflected.maxVal;
+
+            int matchMax = std::max(1, (reflected.maxVal << FP_SHIFT)/recBuf.maxVal*feedback/1024);
+            int matchMin = std::max(1, (reflected.minVal << FP_SHIFT)/recBuf.minVal*feedback/1024);
             nextGain = std::max(matchMax, matchMin);
             break;
         }
