@@ -110,6 +110,8 @@ int main(int argc, char *argv[]) {
     int curGain = 1 << FP_SHIFT, tgtGain = 1 << FP_SHIFT;
 
     for (;;) {
+        int frames;
+
         Buffer &playBuf = buffers[(recPos + 1) % bufCount];
         if (playBuf.frames) {
             int maxGain = std::min((32767 << FP_SHIFT)/playBuf.maxVal,
@@ -123,10 +125,9 @@ int main(int argc, char *argv[]) {
             for (size_t i = 0; i < playBuf.frames*channels; i++) {
                 outBuf.data[i] = std::max(-32768, std::min(32767, (playBuf.data[i]*curGain) >> FP_SHIFT));
                 // standard fixedpoint increment isn't working right, let's waste some CPU
-                curGain = startGain + gainStep/playBuf.frames/channels;
+                curGain = startGain + gainStep*i/playBuf.frames/channels;
             }
 
-            int frames;
             if ((frames = snd_pcm_writei(playback, &outBuf.data.front(), playBuf.frames)) < 0) {
                 std::cerr << std::endl << "Warning: playback: " << snd_strerror(frames) << std::endl;
                 frames = snd_pcm_recover(playback, frames, 0);
@@ -141,11 +142,17 @@ int main(int argc, char *argv[]) {
                           << " (wanted " << tgtGain << "); ";
             }
             
+        } else {
+            // provide some silence to keep ALSA happy
+            std::fill(outBuf.data.begin(), outBuf.data.end(), 0);
+            if ((frames = snd_pcm_writei(playback, &outBuf.data.front(), bufSize)) < 0) {
+                snd_pcm_recover(playback, frames, 1);
+            }
         }
 
         std::cerr << "recording; ";
         Buffer &recBuf = buffers[recPos];
-        int frames = snd_pcm_readi(capture, &recBuf.data.front(), bufSize);
+        frames = snd_pcm_readi(capture, &recBuf.data.front(), bufSize);
         if (frames < 0) {
             frames = snd_pcm_recover(capture, frames, 0);
         }
@@ -170,7 +177,7 @@ int main(int argc, char *argv[]) {
         case P_TARGET: {
             int tgtMax = (target << FP_SHIFT)/recBuf.maxVal;
             int tgtMin = ((-target - 1) << FP_SHIFT)/recBuf.minVal;
-            nextGain = std::max(tgtMax, tgtMin);
+            nextGain = std::min(tgtMax, tgtMin);
             break;
         }
         case P_FEEDBACK: {
