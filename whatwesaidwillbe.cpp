@@ -14,15 +14,20 @@ struct Buffer {
     int minVal, maxVal;
 
     Buffer(size_t frameCount, size_t channels): data(frameCount*channels, 0),
-                                                frames(frameCount),
+                                                frames(0),
                                                 minVal(-1),
                                                 maxVal(1)
     {}
 };
 
 int main(int argc, char *argv[]) {
-	int target = 1024;
-	unsigned int dampen = 900;
+	int target = 16383, feedback = 1024;
+    enum {
+        P_TARGET,
+        P_FEEDBACK
+    } mode = P_TARGET;
+
+	unsigned int dampen = 256;
 	unsigned int rate = 44100;
 	size_t bufSize = 2048;
     const size_t channels = 2;
@@ -33,7 +38,8 @@ int main(int argc, char *argv[]) {
 	po::options_description desc("General options");
 	desc.add_options()
         ("help,h", "show this help")
-		("target,t", po::value<int>(&target)->default_value(target), "target feedback level (1024 = 100%)")
+		("target,t", po::value<int>(&target), "target power mode (0-32767)")
+        ("feedback,f", po::value<int>(&feedback), "feedback mode (1024 = 100%)")
 		("dampen,d", po::value<unsigned int>(&dampen)->default_value(dampen), "dampening factor (0-1024)")
 		("rate,r", po::value<unsigned int>(&rate)->default_value(rate), "sampling rate")
 		("bufSize,k", po::value<size_t>(&bufSize)->default_value(bufSize), "buffer size")
@@ -50,6 +56,16 @@ int main(int argc, char *argv[]) {
             return 1;
         }
 		po::notify(vm);
+
+        if (vm.count("feedback") && vm.count("target")) {
+            std::cerr << "Can't specify both feedback and target" << std::endl;
+            return 1;
+        } if (vm.count("feedback")) {
+            mode = P_FEEDBACK;
+        } else if (vm.count("target")) {
+            mode = P_TARGET;
+        }
+            
 	} catch (const std::exception& e) {
 		std::cerr << e.what() << std::endl;
 		return 1;
@@ -65,7 +81,7 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-    const int latency = 1000000*bufSize/rate;
+    const int latency = 2000000*bufSize/rate;
 
 	if ((err = snd_pcm_set_params(capture,
                                   SND_PCM_FORMAT_S16, SND_PCM_ACCESS_RW_INTERLEAVED,
@@ -88,16 +104,6 @@ int main(int argc, char *argv[]) {
 
     std::vector<Buffer> buffers(bufCount, Buffer(bufSize, channels));
     Buffer outBuf(bufSize, channels);
-
-    // White noise for initial calibration
-    for (size_t i = 0; i < bufCount; i++) {
-        Buffer &buf = buffers[i];
-        for (size_t j = 0; j < bufSize*channels; j++) {
-            buf.data[j] = (rand()&32767) - 16384;
-        }
-        buf.minVal = -16384;
-        buf.maxVal = 16383;
-    }
 
     size_t recPos = 0;
 
@@ -129,7 +135,7 @@ int main(int argc, char *argv[]) {
                     break;
                 }
             } else {
-                std::cerr << "played " << playBuf.frames
+                std::cerr << "played " << frames << '/' << playBuf.frames
                           << " frames, gain = "
                           << startGain << '+' << gainStep << " -> " << curGain
                           << " (wanted " << tgtGain << "); ";
@@ -158,10 +164,22 @@ int main(int argc, char *argv[]) {
         recBuf.minVal = minVal;
         recBuf.maxVal = maxVal;
 
-        int matchMax = std::max(1, (playBuf.maxVal << FP_SHIFT)/recBuf.maxVal*target/1024);
-        int matchMin = std::max(1, (playBuf.minVal << FP_SHIFT)/recBuf.minVal*target/1024);
+        int nextGain;
 
-        int nextGain = (matchMax + matchMin)/2;
+        switch (mode) {
+        case P_TARGET: {
+            int tgtMax = (target << FP_SHIFT)/recBuf.maxVal;
+            int tgtMin = ((-target - 1) << FP_SHIFT)/recBuf.minVal;
+            nextGain = std::max(tgtMax, tgtMin);
+            break;
+        }
+        case P_FEEDBACK: {
+            int matchMax = std::max(1, (playBuf.maxVal << FP_SHIFT)/recBuf.maxVal*target/1024);
+            int matchMin = std::max(1, (playBuf.minVal << FP_SHIFT)/recBuf.minVal*target/1024);
+            nextGain = std::max(matchMax, matchMin);
+            break;
+        }
+        }
         tgtGain = (tgtGain*dampen + nextGain*(1024 - dampen))/1024;
 
         recPos = (recPos + 1) % bufCount;
