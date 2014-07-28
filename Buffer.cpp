@@ -5,14 +5,12 @@ Buffer::Buffer(size_t samples, size_t channels): mChannels(channels),
                                                  mData(samples*channels)
 {}
 
-uint64_t Buffer::power(size_t count) const {
-    uint64_t ttl = 0;
-    const int16_t *read = at(1);
-    while (read != end()) {
-        int16_t moment = *read - *(read - mChannels);
+double Buffer::power(size_t count) const {
+    double ttl = 0;
+    for (const int16_t *iter = begin(); iter != at(count); ++iter) {
+        double moment = *iter*1.0/32768;
         ttl += moment*moment;
-        ++read;
     }
 
-    return sqrt(ttl);
+    return sqrt(ttl/count);
 }

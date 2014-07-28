@@ -6,6 +6,8 @@ class Drum {
 public:
     Drum(size_t samples, size_t channels);
 
+    size_t count() const { return mData.count(); }
+
     /*! @brief Write from a buffer
      *
      *  @param buf The buffer
@@ -30,6 +32,9 @@ public:
      *  @param gain1 End gain value (1024 = 100%)
      */
     size_t read(Buffer& buf, size_t offset, size_t count, int gain0, int gain1) const;
+
+    //! Get the maximum allowable gain for a segment
+    int maxGain(size_t offset, size_t count) const;
 
 private:
     Buffer mData;

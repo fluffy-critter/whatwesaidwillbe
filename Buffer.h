@@ -28,7 +28,7 @@ public:
     int16_t *at(size_t ofs) { return begin() + mChannels*ofs; }
 
     //! Current stored power level
-    uint64_t power(size_t count) const;
+    double power(size_t count) const;
 
 private:
     size_t mChannels;
