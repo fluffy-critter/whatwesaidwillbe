@@ -91,7 +91,7 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-    const int latency = 100000;
+    const int latency = 75000;
 
 	if ((err = snd_pcm_set_params(capture,
                                   SND_PCM_FORMAT_S16, SND_PCM_ACCESS_RW_INTERLEAVED,
@@ -117,7 +117,7 @@ int main(int argc, char *argv[]) {
 
     const size_t loopOffset = rate*loopDelay;
 
-    Drum drum(loopOffset*2, channels);
+    Drum drum(std::max(bufSize*4, loopOffset*2), channels);
     Buffer recBuf(bufSize, channels),
         playBuf(bufSize, channels),
         listenBuf(bufSize*4, channels);
@@ -128,7 +128,7 @@ int main(int argc, char *argv[]) {
     size_t recPos = 0,
         playPos = loopOffset;
 
-    int curGain = 1 << 10, nextGain = 1 << 10;
+    int curGain = 0, nextGain = 0;
 
     size_t posDigits = ceil(log(drum.count())/log(10));
 
@@ -164,8 +164,9 @@ int main(int argc, char *argv[]) {
                 break;
 
             case M_TARGET:
+                drum.read(listenBuf, recPos + drum.count() - bufSize*4, bufSize*4);
                 expected = target;
-                actual = recBuf.power(frames);
+                actual = recBuf.power(bufSize*4);
                 break;
             }
 
@@ -184,7 +185,13 @@ int main(int argc, char *argv[]) {
 
         recPos = drum.write(recBuf, recPos, frames);
 
-        nextGain = std::min(nextGain, drum.maxGain(playPos, frames));
+        int maxGain = drum.maxGain(playPos, frames);
+        if (maxGain < nextGain) {
+            std::cout << 'c';
+            nextGain = maxGain;
+        } else {
+            std::cout << ' ';
+        }
         playPos = drum.read(playBuf, playPos, frames, curGain, nextGain);
         curGain = nextGain;
 
