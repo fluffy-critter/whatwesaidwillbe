@@ -175,7 +175,7 @@ int main(int argc, char *argv[]) {
 
                 std::cout << "expect=" << std::setw(8) << std::setprecision(3) << expected;
                 std::cout << " actual=" << std::setw(8) << std::setprecision(3) << actual;
-                nextGain = curGain*dampen + adjust*(1.0 - dampen);
+                nextGain = ceil(curGain*dampen + adjust*(1.0 - dampen));
 
                 std::cout << " gain="
                           << std::setw(6) << curGain << "->"

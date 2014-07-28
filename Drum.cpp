@@ -95,5 +95,5 @@ int Drum::maxGain(size_t offset, size_t count) const {
     if (minVal || maxVal) {
         return 1024*32768/std::max(abs(maxVal), abs(minVal));
     }
-    return 1024;
+    return 0;
 }
