@@ -21,44 +21,65 @@ int main(int argc, char *argv[]) {
         M_TARGET
     } mode = M_GAIN;
 
-	float dampen = 0.99;
-	unsigned int rate = 44100;
+    float dampen = 0.99;
+    unsigned int rate = 44100;
     size_t bufSize = 1024;
     float loopDelay = 10.0;
     float gain = 1.0;
     float feedback = 0.5;
     float target = 500;
-	std::string captureDevice = "default";
-	std::string playbackDevice = "default";
+    std::string captureDevice = "default";
+    std::string playbackDevice = "default";
 
-	po::options_description desc("General options");
-	desc.add_options()
+    po::options_description desc("General options");
+    desc.add_options()
         ("help,h", "show this help")
-		("dampen,d", po::value<float>(&dampen)->default_value(dampen),
+        ("list,l", "list devices and exit")
+        ("dampen,d", po::value<float>(&dampen)->default_value(dampen),
          "dampening factor (0-1024)")
-		("rate,r", po::value<unsigned int>(&rate)->default_value(rate), "sampling rate")
-		("bufSize,k", po::value<size_t>(&bufSize)->default_value(bufSize), "buffer size")
-		("loopDelay,c", po::value<float>(&loopDelay)->default_value(loopDelay),
+        ("rate,r", po::value<unsigned int>(&rate)->default_value(rate), "sampling rate")
+        ("bufSize,k", po::value<size_t>(&bufSize)->default_value(bufSize), "buffer size")
+        ("loopDelay,c", po::value<float>(&loopDelay)->default_value(loopDelay),
          "loop delay, in seconds")
         ("feedback,f", po::value<float>(&feedback),
          "feedback factor")
         ("target,t", po::value<float>(&target),
          "target power level")
         ("gain,g", po::value<float>(&gain), "ordinary gain")
-		("capture", po::value<std::string>(&captureDevice)->default_value(captureDevice),
+        ("capture", po::value<std::string>(&captureDevice)->default_value(captureDevice),
          "ALSA capture device")
-		("playback", po::value<std::string>(&playbackDevice)->default_value(playbackDevice),
+        ("playback", po::value<std::string>(&playbackDevice)->default_value(playbackDevice),
          "ALSA playback device")
-		;
+        ;
 
-	try {
-		po::variables_map vm;
-		po::store(po::command_line_parser(argc, argv).options(desc).run(), vm);
+    try {
+        po::variables_map vm;
+        po::store(po::command_line_parser(argc, argv).options(desc).run(), vm);
+
         if (vm.count("help")) {
             std::cerr << desc << std::endl;
             return 1;
         }
-		po::notify(vm);
+
+        if (vm.count("list")) {
+            char **hints;
+            int err;
+            if ((err = snd_device_name_hint(-1, "pcm", (void***)&hints))) {
+                std::cerr << "Couldn't get device list: " << snd_strerror(err) << std::endl;
+                return 1;
+            }
+
+            while (*hints) {
+                std::cout << "Name: " << snd_device_name_get_hint(*hints, "NAME") << std::endl
+                          << "Desc: " << snd_device_name_get_hint(*hints, "DESC") << std::endl
+                          << std::endl;
+                ++hints;
+            }
+            return 0;
+        }
+
+
+        po::notify(vm);
 
         int modeCount = 0;
         if (vm.count("target")) {
@@ -77,40 +98,40 @@ int main(int argc, char *argv[]) {
             std::cerr << "Error: Can only specify one mode" << std::endl;
             return 1;
         }
-	} catch (const std::exception& e) {
-		std::cerr << e.what() << std::endl;
-		return 1;
-	}
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << std::endl;
+        return 1;
+    }
 
-	snd_pcm_t *capture, *playback;
+    snd_pcm_t *capture, *playback;
 
-	int err;
-	if ((err = snd_pcm_open(&capture, captureDevice.c_str(), SND_PCM_STREAM_CAPTURE, 0)) < 0) {
-		std::cerr << "Couldn't open " << captureDevice << " for capture: "
-                  << snd_strerror(err) << std::endl;
-		return 1;
-	}
-
-    const int latency = 100000;
-
-	if ((err = snd_pcm_set_params(capture,
-                                  SND_PCM_FORMAT_S16, SND_PCM_ACCESS_RW_INTERLEAVED,
-                                  channels, rate, 1, latency)) < 0) {
-		std::cerr << "Couldn't configure " << captureDevice << " for capture: "
+    int err;
+    if ((err = snd_pcm_open(&capture, captureDevice.c_str(), SND_PCM_STREAM_CAPTURE, 0)) < 0) {
+        std::cerr << "Couldn't open " << captureDevice << " for capture: "
                   << snd_strerror(err) << std::endl;
         return 1;
     }
 
-	if ((err = snd_pcm_open(&playback, captureDevice.c_str(), SND_PCM_STREAM_PLAYBACK, 0)) < 0) {
-		std::cerr << "Couldn't open " << captureDevice << " for capture: "
-                  << snd_strerror(err) << std::endl;
-		return 1;
-	}
+    const int latency = 100000;
 
-	if ((err = snd_pcm_set_params(playback,
+    if ((err = snd_pcm_set_params(capture,
                                   SND_PCM_FORMAT_S16, SND_PCM_ACCESS_RW_INTERLEAVED,
                                   channels, rate, 1, latency)) < 0) {
-		std::cerr << "Couldn't configure " << captureDevice << " for capture: "
+        std::cerr << "Couldn't configure " << captureDevice << " for capture: "
+                  << snd_strerror(err) << std::endl;
+        return 1;
+    }
+
+    if ((err = snd_pcm_open(&playback, captureDevice.c_str(), SND_PCM_STREAM_PLAYBACK, 0)) < 0) {
+        std::cerr << "Couldn't open " << captureDevice << " for capture: "
+                  << snd_strerror(err) << std::endl;
+        return 1;
+    }
+
+    if ((err = snd_pcm_set_params(playback,
+                                  SND_PCM_FORMAT_S16, SND_PCM_ACCESS_RW_INTERLEAVED,
+                                  channels, rate, 1, latency)) < 0) {
+        std::cerr << "Couldn't configure " << captureDevice << " for capture: "
                   << snd_strerror(err) << std::endl;
         return 1;
     }
