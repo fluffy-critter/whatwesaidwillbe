@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <vector>
+#include <alsa/asoundlib.h>
 
 class Buffer {
 public:
@@ -28,7 +29,10 @@ public:
     int16_t *at(size_t ofs) { return begin() + mChannels*ofs; }
 
     //! Current stored power level
-    double power(size_t count) const;
+    double power(size_t count, size_t offset = 0) const;
+
+    int record(snd_pcm_t *source);
+    int play(snd_pcm_t *dest, size_t count) const;
 
 private:
     size_t mChannels;

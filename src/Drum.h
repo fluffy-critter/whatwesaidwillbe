@@ -28,13 +28,13 @@ public:
 
     /*! @brief read into a buffer, with gain attenuation
      *
-     *  @param gain0 Start gain value (1024 = 100%)
-     *  @param gain1 End gain value (1024 = 100%)
+     *  @param gain0 Start gain value
+     *  @param gain1 End gain value
      */
-    size_t read(Buffer& buf, ssize_t offset, size_t count, int gain0, int gain1) const;
+    size_t read(Buffer& buf, ssize_t offset, size_t count, float gain0, float gain1) const;
 
     //! Get the maximum allowable gain for a segment
-    int maxGain(size_t offset, size_t count) const;
+    float maxGain(size_t offset, size_t count) const;
 
 private:
     Buffer mData;

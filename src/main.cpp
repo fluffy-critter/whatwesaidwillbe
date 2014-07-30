@@ -1,18 +1,21 @@
-#include <iostream>
+#include <cstdint>
+#include <fstream>
 #include <iomanip>
+#include <iostream>
+#include <stdexcept>
 #include <vector>
-#include <boost/program_options.hpp>
-#include <alsa/asoundlib.h>
-#include <stdint.h>
 
-#include "Drum.h"
+#include <boost/program_options.hpp>
+#include <boost/throw_exception.hpp>
+
 #include "Buffer.h"
+#include "Drum.h"
 
 namespace po = boost::program_options;
 
 static const int FP_SHIFT = 15;
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[]) try {
     const size_t channels = 2;
 
     enum {
@@ -29,16 +32,18 @@ int main(int argc, char *argv[]) {
     float feedback = 0.5;
     float powerCap = 0.2;
     float target = 500;
-    int latency = 120000;
+    int latencyALSA = 120000;
     std::string captureDevice = "default";
     std::string playbackDevice = "default";
+
+    std::string recDumpFile, listenDumpFile;
 
     po::options_description desc("General options");
     desc.add_options()
         ("help,h", "show this help")
         ("list,l", "list devices and exit")
         ("dampen,d", po::value<float>(&dampen)->default_value(dampen),
-         "dampening factor (0-1024)")
+         "dampening factor")
         ("rate,r", po::value<unsigned int>(&rate)->default_value(rate), "sampling rate")
         ("bufSize,k", po::value<size_t>(&bufSize)->default_value(bufSize), "buffer size")
         ("loopDelay,c", po::value<float>(&loopDelay)->default_value(loopDelay),
@@ -48,15 +53,17 @@ int main(int argc, char *argv[]) {
         ("target,t", po::value<float>(&target),
          "target power level")
         ("gain,g", po::value<float>(&gain), "ordinary gain")
-        ("cap,p", po::value<float>(&powerCap)->default_value(powerCap), "power cap")
-        ("latency,q", po::value<int>(&latency)->default_value(latency), "latency, in microseconds")
+        ("limiter,L", po::value<float>(&powerCap)->default_value(powerCap), "power limiter")
+        ("latency,q", po::value<int>(&latencyALSA)->default_value(latencyALSA), "ALSA latency, in microseconds")
         ("capture", po::value<std::string>(&captureDevice)->default_value(captureDevice),
          "ALSA capture device")
         ("playback", po::value<std::string>(&playbackDevice)->default_value(playbackDevice),
          "ALSA playback device")
+        ("recDump", po::value<std::string>(&recDumpFile), "Recording dump file (raw PCM)")
+        ("listenDump", po::value<std::string>(&listenDumpFile), "Play dump file (raw PCM)")
         ;
 
-    try {
+    {
         po::variables_map vm;
         po::store(po::command_line_parser(argc, argv).options(desc).run(), vm);
 
@@ -82,7 +89,6 @@ int main(int argc, char *argv[]) {
             return 0;
         }
 
-
         po::notify(vm);
 
         int modeCount = 0;
@@ -107,9 +113,14 @@ int main(int argc, char *argv[]) {
             std::cerr << "Error: Can only specify one mode" << std::endl;
             return 1;
         }
-    } catch (const std::exception& e) {
-        std::cerr << e.what() << std::endl;
-        return 1;
+    }
+
+    std::ofstream recDump, listenDump;
+    if (!recDumpFile.empty()) {
+        recDump.open(recDumpFile);
+    }
+    if (!listenDumpFile.empty()) {
+        listenDump.open(listenDumpFile);
     }
 
     snd_pcm_t *capture, *playback;
@@ -123,7 +134,7 @@ int main(int argc, char *argv[]) {
 
     if ((err = snd_pcm_set_params(capture,
                                   SND_PCM_FORMAT_S16, SND_PCM_ACCESS_RW_INTERLEAVED,
-                                  channels, rate, 1, latency)) < 0) {
+                                  channels, rate, 1, latencyALSA)) < 0) {
         std::cerr << "Couldn't configure " << captureDevice << " for capture: "
                   << snd_strerror(err) << std::endl;
         return 1;
@@ -137,11 +148,14 @@ int main(int argc, char *argv[]) {
 
     if ((err = snd_pcm_set_params(playback,
                                   SND_PCM_FORMAT_S16, SND_PCM_ACCESS_RW_INTERLEAVED,
-                                  channels, rate, 1, latency)) < 0) {
+                                  channels, rate, 1, latencyALSA)) < 0) {
         std::cerr << "Couldn't configure " << captureDevice << " for capture: "
                   << snd_strerror(err) << std::endl;
         return 1;
     }
+
+    snd_pcm_wait(capture, -1);
+    snd_pcm_wait(playback, -1);
 
     const size_t loopOffset = rate*loopDelay;
 
@@ -150,20 +164,62 @@ int main(int argc, char *argv[]) {
         playBuf(bufSize, channels),
         listenBuf(bufSize*4, channels);
 
-    size_t latencyTime = latency + bufSize*1000000/rate;
-    size_t latencySamples = rate*latencyTime/1000000;
+    // autocalibrate the latency
+    int latencyAdjust = 0;
+    {
+        double quietPower = 0;
+        int frames;
+
+        // get a quiescent reading
+        std::cout << "Obtaining quiescent power level...";
+        std::cout.flush();
+        for (size_t i = 0; i < 10; i++) {
+            frames = recBuf.record(capture);
+            quietPower = std::max(quietPower, recBuf.power(frames));
+            playBuf.play(playback, frames);
+        }
+        std::cout << quietPower << std::endl;
+
+        // send a burst of static
+        std::cout << "Waiting for static burst...";
+        std::cout.flush();
+        for (int16_t &t : playBuf) {
+            t = rand();
+        }
+
+        do {
+            frames = recBuf.record(capture);
+            playBuf.play(playback, frames);
+            std::fill(playBuf.begin(), playBuf.end(), 0);
+            latencyAdjust += frames;
+        } while (recBuf.power(frames) < 2*quietPower);
+
+        // figure out whereabouts the static started
+        size_t left = 0, right = frames;
+        while (left + 50 < right) {
+            size_t mid = (left + right)/2;
+            double powLeft = recBuf.power(mid - left, left);
+            double powRight = recBuf.power(right - mid, mid);
+            if (powLeft < 2*quietPower) {
+                left = mid;
+            } else {
+                right = mid;
+            }
+        }
+        latencyAdjust -= frames - left;
+        std::cout << "Adjustment is " << latencyAdjust << " samples (" << latencyAdjust*1.0/rate << " seconds)"
+                  << std::endl;
+    }
 
     size_t recPos = 0,
         playPos = loopOffset;
 
-    int curGain = 0, nextGain = 0;
+    float curGain = 0, nextGain = 0;
 
     size_t posDigits = ceil(log(drum.count())/log(10));
 
     for (;;) {
-        int frames = snd_pcm_readi(capture,
-                                   recBuf.begin(),
-                                   recBuf.count());
+        int frames = recBuf.record(capture);
         if (frames < 0) {
             frames = snd_pcm_recover(capture, frames, 0);
             if (frames > 0 && (size_t)frames < bufSize) {
@@ -176,48 +232,56 @@ int main(int argc, char *argv[]) {
             break;
         }
 
+        if (recDump) {
+            recDump.write(reinterpret_cast<const char *>(recBuf.begin()), frames*channels*sizeof(int16_t));
+            recDump.flush();
+        }
+
         // compare the recorded power with the expected power
         if (frames > 0) {
             double expected, actual;
 
             actual = recBuf.power(frames);
 
-            switch (mode) {
-            case M_GAIN:
-                expected = actual*gain;
-                break;
-
-            case M_FEEDBACK:
-                drum.read(listenBuf, playPos + loopOffset - latencySamples, frames*2);
-                expected = listenBuf.power(frames*2)*feedback;
-                break;
-
-            case M_TARGET:
-                expected = target;
-                break;
+            drum.read(listenBuf, playPos - latencyAdjust, frames);
+            expected = listenBuf.power(frames);
+            if (listenDump) {
+                listenDump.write(reinterpret_cast<const char *>(listenBuf.begin()), frames*channels*sizeof(int16_t));
+                listenDump.flush();
             }
 
-            if (actual > 0 && expected > 0) {
-                int adjust = expected*(1 << 10)/actual;
+            if (actual > 0) {
+                float adjusted;
+                switch (mode) {
+                case M_GAIN:
+                    adjusted = gain;
+                    break;
+
+                case M_FEEDBACK:
+                    adjusted = expected/actual;
+                    break;
+
+                case M_TARGET:
+                    adjusted = target/actual;
+                    break;
+                }
+
                 if (actual > powerCap) {
-                    adjust = curGain*powerCap/actual;
+                    adjusted = adjusted*powerCap/actual;
                     std::cout << 'L';
                 } else {
                     std::cout << ' ';
                 }
 
-
                 std::cout << "expect=" << std::setw(8) << std::setprecision(3) << expected;
                 std::cout << " actual=" << std::setw(8) << std::setprecision(3) << actual;
-                nextGain = ceil(curGain*dampen + adjust*(1.0 - dampen));
+                nextGain = curGain*dampen + adjusted*(1.0 - dampen);
 
                 std::cout << " gain="
                           << std::setw(6) << curGain << "->"
                           << std::setw(6) << nextGain;
             }
         }
-
-        recPos = drum.write(recBuf, recPos, frames);
 
         int maxGain = drum.maxGain(playPos, frames);
         if (maxGain < nextGain) {
@@ -229,20 +293,9 @@ int main(int argc, char *argv[]) {
         playPos = drum.read(playBuf, playPos, frames, curGain, nextGain);
         curGain = nextGain;
 
-        frames = snd_pcm_writei(playback,
-                                playBuf.begin(),
-                                frames);
-        if (frames < 0) {
-            frames = snd_pcm_recover(playback, frames, 0);
-            if (frames > 0 && (size_t)frames < bufSize) {
-                bufSize = frames;
-                std::cerr << "Adjusting bufsize to " << bufSize << std::endl;
-            }
-        }
-        if (frames < 0) {
-            std::cerr << "Error during playback: " << snd_strerror(frames) << std::endl;
-            break;
-        }
+        recPos = drum.write(recBuf, recPos, frames);
+
+        frames = playBuf.play(playback, frames);
 
         std::cout << "  pos="
                   << std::setw(posDigits) << playPos
@@ -254,4 +307,7 @@ int main(int argc, char *argv[]) {
     snd_pcm_close(capture);
     snd_pcm_close(playback);
     return 0;
+} catch (const std::exception& e) {
+    std::cerr << "Error: " << e.what() << std::endl;
 }
+
