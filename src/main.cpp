@@ -163,7 +163,7 @@ int main(int argc, char *argv[]) try {
     Drum drum(std::max(bufSize*4, loopOffset*2), channels);
     Buffer recBuf(bufSize, channels),
         playBuf(bufSize, channels),
-        listenBuf(bufSize*4, channels);
+        listenBuf(bufSize*2, channels);
 
     // autocalibrate the latency
     int latencyAdjust = 0;
@@ -253,7 +253,7 @@ int main(int argc, char *argv[]) try {
 
             actual = recBuf.power(frames);
 
-            drum.read(listenBuf, playPos - latencyAdjust, frames);
+            drum.read(listenBuf, playPos - latencyAdjust - bufSize/2, bufSize*2);
             expected = listenBuf.power(frames);
             if (listenDump) {
                 listenDump.write(reinterpret_cast<const char *>(listenBuf.begin()), frames*channels*sizeof(int16_t));
