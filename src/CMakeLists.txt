@@ -1,13 +1,18 @@
-cmake_minimum_required (VERSION 2.6)
-project (whatwesaidwillbe)
+CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
+PROJECT(whatwesaidwillbe)
 
 SET(CMAKE_CXX_FLAGS "-std=c++11")
 
-add_executable(whatwesaidwillbe main.cpp Buffer.cpp Drum.cpp)
+ADD_EXECUTABLE(whatwesaidwillbe main.cpp Buffer.cpp Drum.cpp)
 
-find_package(ALSA)
-target_link_libraries(whatwesaidwillbe ${ALSA_LIBRARIES})
+FIND_PACKAGE(ALSA)
+INCLUDE_DIRECTORIES( ${ALSA_INCLUDE_DIR} )
 
-find_package(Boost COMPONENTS program_options REQUIRED)
-target_link_libraries(whatwesaidwillbe ${Boost_LIBRARIES})
+
+FIND_PACKAGE(Boost COMPONENTS program_options REQUIRED)
+INCLUDE_DIRECTORIES( ${BOOST_INCLUDE_DIR} )
+
+TARGET_LINK_LIBRARIES(whatwesaidwillbe 
+                                       ${ALSA_LIBRARIES}
+                                       ${Boost_LIBRARIES})
 
