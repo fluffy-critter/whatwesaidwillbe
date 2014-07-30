@@ -222,7 +222,7 @@ int main(int argc, char *argv[]) try {
     }
 
     size_t recPos = 0,
-        playPos = loopOffset;
+        playPos = loopOffset - latencyAdjust;
 
     float curGain = 0, nextGain = 0;
 
