@@ -5,13 +5,17 @@
 
 #include "Buffer.h"
 
-Buffer::Buffer(size_t samples, size_t channels): mChannels(channels),
-                                                 mData(samples*channels)
+Buffer::Buffer(snd_pcm_t* pipe,
+               size_t samples,
+               size_t channels):
+    mPipe(pipe),
+    mChannels(channels),
+    mData(samples*channels)
 {}
 
 double Buffer::power(size_t count, size_t offset) const {
     double ttl = 0;
-    for (const int16_t *iter = at(offset); iter != at(offset + count); ++iter) {
+    for (const_iterator iter = at(offset); iter != at(offset + count); ++iter) {
         double moment = *iter*1.0/32768;
         ttl += moment*moment;
     }
@@ -19,10 +23,10 @@ double Buffer::power(size_t count, size_t offset) const {
     return sqrt(ttl/count);
 }
 
-int Buffer::record(snd_pcm_t *source) {
-    int frames = snd_pcm_readi(source, begin(), count());
+int Buffer::record() {
+    int frames = snd_pcm_readi(mPipe, &*begin(), count());
     if (frames < 0) {
-        frames = snd_pcm_recover(source, frames, 0);
+        frames = snd_pcm_recover(mPipe, frames, 0);
     }
     if (frames < 0) {
         BOOST_THROW_EXCEPTION(std::runtime_error(snd_strerror(frames)));
@@ -30,10 +34,10 @@ int Buffer::record(snd_pcm_t *source) {
     return frames;
 }
 
-int Buffer::play(snd_pcm_t *dest, size_t n) const {
-    int frames = snd_pcm_writei(dest, begin(), n);
+int Buffer::play(size_t n) const {
+    int frames = snd_pcm_writei(mPipe, &*begin(), n);
     if (frames < 0) {
-        frames = snd_pcm_recover(dest, frames, 0);
+        frames = snd_pcm_recover(mPipe, frames, 0);
     }
     if (frames < 0) {
         BOOST_THROW_EXCEPTION(std::runtime_error(snd_strerror(frames)));

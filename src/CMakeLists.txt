@@ -3,8 +3,6 @@ PROJECT(whatwesaidwillbe)
 
 SET(CMAKE_CXX_FLAGS "-std=c++11")
 
-ADD_EXECUTABLE(whatwesaidwillbe main.cpp Buffer.cpp Drum.cpp)
-
 FIND_PACKAGE(ALSA REQUIRED)
 INCLUDE_DIRECTORIES(${ALSA_INCLUDE_DIR})
 
@@ -21,9 +19,17 @@ INCLUDE_DIRECTORIES(${OpenGL_INCLUDE_DIRS})
 LINK_DIRECTORIES(${OpenGL_LIBRARY_DIRS})
 ADD_DEFINITIONS(${OpenGL_DEFINITIONS})
 
+ADD_EXECUTABLE(whatwesaidwillbe
+        main.cpp
+        Buffer.cpp
+        Drum.cpp
+        Calibrate.cpp
+)
+
 TARGET_LINK_LIBRARIES(whatwesaidwillbe 
                                        ${ALSA_LIBRARIES}
                                        ${Boost_LIBRARIES}
                                        ${OpenGL_LIBRARIES}
-                                       ${GLUT_LIBRARIES})
+                                       ${GLUT_LIBRARIES}
+)
 

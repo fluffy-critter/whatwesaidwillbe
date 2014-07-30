@@ -9,11 +9,10 @@
 #include <boost/throw_exception.hpp>
 
 #include "Buffer.h"
+#include "Calibrate.h"
 #include "Drum.h"
 
 namespace po = boost::program_options;
-
-static const int FP_SHIFT = 15;
 
 int main(int argc, char *argv[]) try {
     const size_t channels = 2;
@@ -161,64 +160,23 @@ int main(int argc, char *argv[]) try {
     const size_t loopOffset = rate*loopDelay;
 
     Drum drum(std::max(bufSize*4, loopOffset*2), channels);
-    Buffer recBuf(bufSize, channels),
-        playBuf(bufSize, channels),
-        listenBuf(bufSize*2, channels);
+    Buffer recBuf(capture, bufSize, channels),
+        playBuf(playback, bufSize, channels),
+        listenBuf(NULL, bufSize*2, channels);
 
-    // autocalibrate the latency
-    int latencyAdjust = 0;
+    int latencyAdjust;
     {
-        double quietPower = 0;
-        int frames;
-
-        // get a quiescent reading
-        std::cout << "Obtaining quiescent power level...";
-        std::cout.flush();
-        for (size_t i = 0; i < 10; i++) {
-            frames = recBuf.record(capture);
-            quietPower = std::max(quietPower, recBuf.power(frames));
-            playBuf.play(playback, frames);
+        Calibrate cc;
+        for (int i = 0; i < 4; i++) {
+            cc.go(recBuf, playBuf);
         }
-        std::cout << quietPower << std::endl;
+        latencyAdjust = cc.getLatency();
+        std::cout << "Overall latency: " << latencyAdjust << std::endl;
 
-        if (!feedbackThreshold) {
-            feedbackThreshold = quietPower*3;
+        if (feedbackThreshold <= 0) {
+            feedbackThreshold = cc.getQuietPower()*3;
+            std::cout << "Feedback threshold: " << feedbackThreshold << std::endl;
         }
-
-        // send a burst of static
-        std::cout << "Waiting for static burst...";
-        std::cout.flush();
-        for (int16_t &t : playBuf) {
-            t = (rand() & 32767) - 16384;
-        }
-
-        time_t startTime = time(NULL);
-        do {
-            frames = recBuf.record(capture);
-            playBuf.play(playback, frames);
-            std::fill(playBuf.begin(), playBuf.end(), 0);
-            latencyAdjust += frames;
-        } while (recBuf.power(frames) < 2*quietPower && time(NULL) < startTime + 5);
-        if (recBuf.power(frames) < 2*quietPower) {
-            std::cerr << "Timed out waiting for calibration burst." << std::endl;
-            return 1;
-        }
-
-        // figure out whereabouts the static started
-        size_t left = 0, right = frames;
-        while (left + 50 < right) {
-            size_t mid = (left + right)/2;
-            double powLeft = recBuf.power(mid - left, left);
-            double powRight = recBuf.power(right - mid, mid);
-            if (powLeft < 2*quietPower) {
-                left = mid;
-            } else {
-                right = mid;
-            }
-        }
-        latencyAdjust -= frames - left;
-        std::cout << "Adjustment is " << latencyAdjust << " samples (" << latencyAdjust*1.0/rate << " seconds)"
-                  << std::endl;
     }
 
     size_t recPos = 0,
@@ -229,21 +187,10 @@ int main(int argc, char *argv[]) try {
     size_t posDigits = ceil(log(drum.count())/log(10));
 
     for (;;) {
-        int frames = recBuf.record(capture);
-        if (frames < 0) {
-            frames = snd_pcm_recover(capture, frames, 0);
-            if (frames > 0 && (size_t)frames < bufSize) {
-                bufSize = frames;
-                std::cerr << "Adjusting bufsize to " << bufSize << std::endl;
-            }
-        }
-        if (frames < 0) {
-            std::cerr << "Error during capture: " << snd_strerror(frames) << std::endl;
-            break;
-        }
+        int frames = recBuf.record();
 
         if (recDump) {
-            recDump.write(reinterpret_cast<const char *>(recBuf.begin()), frames*channels*sizeof(int16_t));
+            recDump.write(reinterpret_cast<const char *>(&*recBuf.begin()), frames*channels*sizeof(int16_t));
             recDump.flush();
         }
 
@@ -256,7 +203,8 @@ int main(int argc, char *argv[]) try {
             drum.read(listenBuf, playPos - latencyAdjust - bufSize/2, bufSize*2);
             expected = listenBuf.power(frames);
             if (listenDump) {
-                listenDump.write(reinterpret_cast<const char *>(listenBuf.begin()), frames*channels*sizeof(int16_t));
+                listenDump.write(reinterpret_cast<const char *>(&*listenBuf.begin()),
+                                 frames*channels*sizeof(int16_t));
                 listenDump.flush();
             }
 
@@ -314,7 +262,7 @@ int main(int argc, char *argv[]) try {
 
         recPos = drum.write(recBuf, recPos, frames);
 
-        frames = playBuf.play(playback, frames);
+        frames = playBuf.play(frames);
 
         std::cout << "  pos="
                   << std::setw(posDigits) << playPos
