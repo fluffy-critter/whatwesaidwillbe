@@ -27,14 +27,14 @@ size_t Drum::write(const Buffer& buf, size_t offset, size_t count) {
     return start + first;
 }
 
-size_t Drum::read(Buffer& buf, size_t offset, size_t count) const {
+size_t Drum::read(Buffer& buf, ssize_t offset, size_t count) const {
     if (buf.channels() != mData.channels()) {
         BOOST_THROW_EXCEPTION(std::runtime_error("Mismatched channel count"));
     }
     count = std::min(count, buf.count());
 
     const size_t bufSz = mData.count();
-    size_t start = offset % bufSz;
+    size_t start = (offset + bufSz) % bufSz;
 
     const size_t first = std::min(count, bufSz - start);
     const size_t second = count - first;
@@ -46,7 +46,7 @@ size_t Drum::read(Buffer& buf, size_t offset, size_t count) const {
     return start + first;
 }
 
-size_t Drum::read(Buffer& buf, size_t offset, size_t count, int gain0, int gain1) const {
+size_t Drum::read(Buffer& buf, ssize_t offset, size_t count, int gain0, int gain1) const {
     if (buf.channels() != mData.channels()) {
         BOOST_THROW_EXCEPTION(std::runtime_error("Mismatched channel count"));
     }
@@ -56,7 +56,7 @@ size_t Drum::read(Buffer& buf, size_t offset, size_t count, int gain0, int gain1
     int64_t curGain = gain0 << 16;
     int64_t gainStep = ((gain1 - gain0) << 16)/buf.count();
 
-    size_t start = offset % mData.count();
+    size_t start = (offset + mData.count()) % mData.count();
 
     const int16_t *in = mData.at(start);
     int16_t *out = buf.begin();
@@ -95,5 +95,5 @@ int Drum::maxGain(size_t offset, size_t count) const {
     if (minVal || maxVal) {
         return 1024*32768/std::max(abs(maxVal), abs(minVal));
     }
-    return 1024;
+    return 0;
 }

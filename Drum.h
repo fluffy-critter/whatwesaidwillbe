@@ -24,14 +24,14 @@ public:
      *  @param count The number of samples to read
      *  @returns next read position
      */
-    size_t read(Buffer& buf, size_t offset, size_t count) const;
+    size_t read(Buffer& buf, ssize_t offset, size_t count) const;
 
     /*! @brief read into a buffer, with gain attenuation
      *
      *  @param gain0 Start gain value (1024 = 100%)
      *  @param gain1 End gain value (1024 = 100%)
      */
-    size_t read(Buffer& buf, size_t offset, size_t count, int gain0, int gain1) const;
+    size_t read(Buffer& buf, ssize_t offset, size_t count, int gain0, int gain1) const;
 
     //! Get the maximum allowable gain for a segment
     int maxGain(size_t offset, size_t count) const;

@@ -27,7 +27,9 @@ int main(int argc, char *argv[]) {
     float loopDelay = 10.0;
     float gain = 1.0;
     float feedback = 0.5;
+    float powerCap = 0.2;
     float target = 500;
+    int latency = 120000;
     std::string captureDevice = "default";
     std::string playbackDevice = "default";
 
@@ -46,6 +48,8 @@ int main(int argc, char *argv[]) {
         ("target,t", po::value<float>(&target),
          "target power level")
         ("gain,g", po::value<float>(&gain), "ordinary gain")
+        ("cap,p", po::value<float>(&powerCap)->default_value(powerCap), "power cap")
+        ("latency,q", po::value<int>(&latency)->default_value(latency), "latency, in microseconds")
         ("capture", po::value<std::string>(&captureDevice)->default_value(captureDevice),
          "ALSA capture device")
         ("playback", po::value<std::string>(&playbackDevice)->default_value(playbackDevice),
@@ -85,6 +89,11 @@ int main(int argc, char *argv[]) {
         if (vm.count("target")) {
             ++modeCount;
             mode = M_TARGET;
+
+            if (target < powerCap) {
+                std::cerr << "Target power can't be less than the power cap" << std::endl;
+                return 1;
+            }
         }
         if (vm.count("feedback")) {
             ++modeCount;
@@ -112,8 +121,6 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    const int latency = 100000;
-
     if ((err = snd_pcm_set_params(capture,
                                   SND_PCM_FORMAT_S16, SND_PCM_ACCESS_RW_INTERLEAVED,
                                   channels, rate, 1, latency)) < 0) {
@@ -138,7 +145,7 @@ int main(int argc, char *argv[]) {
 
     const size_t loopOffset = rate*loopDelay;
 
-    Drum drum(loopOffset*2, channels);
+    Drum drum(std::max(bufSize*4, loopOffset*2), channels);
     Buffer recBuf(bufSize, channels),
         playBuf(bufSize, channels),
         listenBuf(bufSize*4, channels);
@@ -149,7 +156,7 @@ int main(int argc, char *argv[]) {
     size_t recPos = 0,
         playPos = loopOffset;
 
-    int curGain = 1 << 10, nextGain = 1 << 10;
+    int curGain = 0, nextGain = 0;
 
     size_t posDigits = ceil(log(drum.count())/log(10));
 
@@ -172,30 +179,37 @@ int main(int argc, char *argv[]) {
         // compare the recorded power with the expected power
         if (frames > 0) {
             double expected, actual;
+
+            actual = recBuf.power(frames);
+
             switch (mode) {
             case M_GAIN:
-                expected = gain;
-                actual = 1.0;
+                expected = actual*gain;
                 break;
 
             case M_FEEDBACK:
-                drum.read(listenBuf, playPos + loopOffset - latencySamples, bufSize*4);
-                expected = listenBuf.power(bufSize*4)*feedback;
-                actual = recBuf.power(frames);
+                drum.read(listenBuf, playPos + loopOffset - latencySamples, frames*2);
+                expected = listenBuf.power(frames*2)*feedback;
                 break;
 
             case M_TARGET:
                 expected = target;
-                actual = recBuf.power(frames);
                 break;
             }
 
             if (actual > 0 && expected > 0) {
                 int adjust = expected*(1 << 10)/actual;
+                if (actual > powerCap) {
+                    adjust = curGain*powerCap/actual;
+                    std::cout << 'L';
+                } else {
+                    std::cout << ' ';
+                }
+
 
                 std::cout << "expect=" << std::setw(8) << std::setprecision(3) << expected;
                 std::cout << " actual=" << std::setw(8) << std::setprecision(3) << actual;
-                nextGain = curGain*dampen + adjust*(1.0 - dampen);
+                nextGain = ceil(curGain*dampen + adjust*(1.0 - dampen));
 
                 std::cout << " gain="
                           << std::setw(6) << curGain << "->"
@@ -205,7 +219,13 @@ int main(int argc, char *argv[]) {
 
         recPos = drum.write(recBuf, recPos, frames);
 
-        nextGain = std::min(nextGain, drum.maxGain(playPos, frames));
+        int maxGain = drum.maxGain(playPos, frames);
+        if (maxGain < nextGain) {
+            std::cout << 'c';
+            nextGain = maxGain;
+        } else {
+            std::cout << ' ';
+        }
         playPos = drum.read(playBuf, playPos, frames, curGain, nextGain);
         curGain = nextGain;
 
