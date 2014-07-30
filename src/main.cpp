@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) try {
     size_t bufSize = 1024;
     float loopDelay = 10.0;
     float gain = 1.0;
-    float feedback = 0.5;
+    float feedback = 0.5, feedbackThreshold = 0.1;
     float powerCap = 0.2;
     float target = 500;
     int latencyALSA = 120000;
@@ -50,6 +50,7 @@ int main(int argc, char *argv[]) try {
          "loop delay, in seconds")
         ("feedback,f", po::value<float>(&feedback),
          "feedback factor")
+        ("feedThresh,F", po::value<float>(&feedbackThreshold), "feedback adjustment threshold")
         ("target,t", po::value<float>(&target),
          "target power level")
         ("gain,g", po::value<float>(&gain), "ordinary gain")
@@ -184,15 +185,20 @@ int main(int argc, char *argv[]) try {
         std::cout << "Waiting for static burst...";
         std::cout.flush();
         for (int16_t &t : playBuf) {
-            t = rand();
+            t = (rand() & 32767) - 16384;
         }
 
+        time_t startTime = time(NULL);
         do {
             frames = recBuf.record(capture);
             playBuf.play(playback, frames);
             std::fill(playBuf.begin(), playBuf.end(), 0);
             latencyAdjust += frames;
-        } while (recBuf.power(frames) < 2*quietPower);
+        } while (recBuf.power(frames) < 2*quietPower && time(NULL) < startTime + 5);
+        if (recBuf.power(frames) < 2*quietPower) {
+            std::cerr << "Timed out waiting for calibration burst." << std::endl;
+            return 1;
+        }
 
         // figure out whereabouts the static started
         size_t left = 0, right = frames;
@@ -258,7 +264,11 @@ int main(int argc, char *argv[]) try {
                     break;
 
                 case M_FEEDBACK:
-                    adjusted = expected/actual;
+                    if (expected >= feedbackThreshold) {
+                        adjusted = expected*feedback/actual;
+                    } else {
+                        adjusted = curGain;
+                    }
                     break;
 
                 case M_TARGET:
