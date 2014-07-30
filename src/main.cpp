@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) try {
     size_t bufSize = 1024;
     float loopDelay = 10.0;
     float gain = 1.0;
-    float feedback = 0.5, feedbackThreshold = 0.1;
+    float feedback = 0.5, feedbackThreshold = 0;
     float powerCap = 0.2;
     float target = 500;
     int latencyALSA = 120000;
@@ -181,6 +181,10 @@ int main(int argc, char *argv[]) try {
         }
         std::cout << quietPower << std::endl;
 
+        if (!feedbackThreshold) {
+            feedbackThreshold = quietPower*3;
+        }
+
         // send a burst of static
         std::cout << "Waiting for static burst...";
         std::cout.flush();
@@ -264,9 +268,14 @@ int main(int argc, char *argv[]) try {
                     break;
 
                 case M_FEEDBACK:
-                    if (expected >= feedbackThreshold) {
-                        adjusted = expected*feedback/actual;
+                    if (expected > feedbackThreshold && actual > feedbackThreshold) {
+                        // we have sound, and we are expecting sound
+                        adjusted = (expected - feedbackThreshold)*feedback/(actual - feedbackThreshold);
+                    } else if (expected < feedbackThreshold) {
+                        // we have no sound yet, so just set the gain to 1
+                        adjusted = 1;
                     } else {
+                        // we are not expecting sound, so keep it the same
                         adjusted = curGain;
                     }
                     break;
