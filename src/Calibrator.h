@@ -2,9 +2,9 @@
 
 #include "Buffer.h"
 
-class Calibrate {
+class Calibrator {
 public:
-    Calibrate();
+    Calibrator();
 
     void go(Buffer& rec, Buffer& play);
 

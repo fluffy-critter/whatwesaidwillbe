@@ -6,7 +6,7 @@ SET(CMAKE_CXX_FLAGS "-std=c++11")
 FIND_PACKAGE(ALSA REQUIRED)
 INCLUDE_DIRECTORIES(${ALSA_INCLUDE_DIR})
 
-FIND_PACKAGE(Boost COMPONENTS program_options REQUIRED)
+FIND_PACKAGE(Boost COMPONENTS program_options thread system REQUIRED)
 INCLUDE_DIRECTORIES(${BOOST_INCLUDE_DIR})
 
 FIND_PACKAGE(GLUT REQUIRED)
@@ -22,8 +22,9 @@ ADD_DEFINITIONS(${OpenGL_DEFINITIONS})
 ADD_EXECUTABLE(whatwesaidwillbe
         main.cpp
         Buffer.cpp
+        Calibrator.cpp 
         Drum.cpp
-        Calibrate.cpp
+        Repeater.cpp        
 )
 
 TARGET_LINK_LIBRARIES(whatwesaidwillbe 

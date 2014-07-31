@@ -39,7 +39,7 @@ public:
     int play(size_t count) const;
 
 private:
-    snd_pcm_t* mPipe;
+    snd_pcm_t *mPipe;
     size_t mChannels;
     std::vector<int16_t> mData;
 };

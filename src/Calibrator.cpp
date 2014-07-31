@@ -5,15 +5,15 @@
 #include <boost/throw_exception.hpp>
 
 #include "Buffer.h"
-#include "Calibrate.h"
+#include "Calibrator.h"
 
-Calibrate::Calibrate():
+Calibrator::Calibrator():
     mTrials(0),
     mTotalLatency(0),
     mMaxQuiet(0)
 {}
 
-void Calibrate::go(Buffer& recBuf, Buffer& playBuf) {
+void Calibrator::go(Buffer& recBuf, Buffer& playBuf) {
     // autocalibrate the latency
     int latencyAdjust = 0;
     int frames;
@@ -38,7 +38,7 @@ void Calibrate::go(Buffer& recBuf, Buffer& playBuf) {
     int period = playBuf.count()*playBuf.channels();
     for (size_t i = 0; i < period; i++) {
         float x = i*2*M_PI/period;
-        float y = (sin(x*163) + sin(x*59) + sin(x*69)/3 + sin(x*71)/5)/4;
+        float y = (sin(x*163) + sin(x*67) + sin(x*69)/3 + sin(x*71)/5)/4;
         *out++ = y*32767;
     }
 
@@ -54,19 +54,20 @@ void Calibrate::go(Buffer& recBuf, Buffer& playBuf) {
 
     std::cout << "Burst detected, power=" << recBuf.power(frames)/quietPower << "x" << std::endl;
 
-    // figure out whereabouts the static started (TODO: make this algorithm better)
-    size_t left = 0, right = frames;
-    while (left + 50 < right) {
-        size_t mid = (left + right)/2;
-        double powLeft = recBuf.power(mid - left, left);
-        double powRight = recBuf.power(right - mid, mid);
-        if (powLeft < 2*quietPower) {
-            left = mid;
-        } else {
-            right = mid;
+    // figure out whereabouts the burst started (this is naive but who cares)
+    size_t maxPos = 0;
+    float maxDelta = 0;
+    float lastVal = recBuf.power(frames);
+    for (size_t split = 0; split < frames; split++) {
+        float val = recBuf.power(frames - split, split);
+        float delta = val - lastVal;
+        if (delta > maxDelta) {
+            maxPos = split;
+            maxDelta = delta;
         }
+        lastVal = val;
     }
-    latencyAdjust -= frames - left;
+    latencyAdjust -= frames - maxPos;
 
     // wait for silence to return
     std::fill(playBuf.begin(), playBuf.end(), 0);
