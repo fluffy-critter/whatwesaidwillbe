@@ -38,7 +38,7 @@ void Calibrate::go(Buffer& recBuf, Buffer& playBuf) {
     int period = playBuf.count()*playBuf.channels();
     for (size_t i = 0; i < period; i++) {
         float x = i*2*M_PI/period;
-        float y = (sin(i*127) + sin(i*11) + sin(i*23) + sin(i*71))/4;
+        float y = (sin(x*163) + sin(x*59) + sin(x*69)/3 + sin(x*71)/5)/4;
         *out++ = y*32767;
     }
 
@@ -51,6 +51,8 @@ void Calibrate::go(Buffer& recBuf, Buffer& playBuf) {
     if (recBuf.power(frames) < 2*quietPower) {
         BOOST_THROW_EXCEPTION(std::runtime_error("Timed out waiting for calibration burst"));
     }
+
+    std::cout << "Burst detected, power=" << recBuf.power(frames)/quietPower << "x" << std::endl;
 
     // figure out whereabouts the static started (TODO: make this algorithm better)
     size_t left = 0, right = frames;

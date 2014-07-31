@@ -167,11 +167,10 @@ int main(int argc, char *argv[]) try {
     int latencyAdjust;
     {
         Calibrate cc;
-        for (int i = 0; i < 4; i++) {
-            cc.go(recBuf, playBuf);
-        }
+        cc.go(recBuf, playBuf);
+
         latencyAdjust = cc.getLatency();
-        std::cout << "Overall latency: " << latencyAdjust << std::endl;
+        std::cout << "Overall latency: " << latencyAdjust << " (" << latencyAdjust*1.0/rate << "sec)" << std::endl;
 
         if (feedbackThreshold <= 0) {
             feedbackThreshold = cc.getQuietPower()*3;
@@ -179,8 +178,8 @@ int main(int argc, char *argv[]) try {
         }
     }
 
-    size_t recPos = 0,
-        playPos = loopOffset - latencyAdjust;
+    size_t recPos = loopOffset - latencyAdjust,
+        playPos = 0;
 
     float curGain = 0, nextGain = 0;
 
