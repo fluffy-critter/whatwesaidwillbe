@@ -6,14 +6,14 @@ It's also fun to hook instruments directly up to the mixer and inject their audi
 
 This requires CMake, ALSA, GLUT, and a lot of patience.
 
-## Recommended Configuration
+# Recommended Configuration
 
 * Computer running Linux with a 2x2 audio interface (most laptops only have 2x1, but you can get a decent 2x2 USB interface for around $30)
-** Pulseaudio configured with said 2x2 interface as the primary input and output
-** Interface output going to decent speakers, separated by several feet, or ideally in different rooms
+  * Pulseaudio configured with said 2x2 interface as the primary input and output
+  * Interface output going to decent speakers, separated by several feet, or ideally in different rooms
 * Two condenser microphones (I use MXL V63m), each one sitting 5 feet in front of a speaker
-* The microphones are connected to a mixer with phantom power, panned to the opposite of the speakers they face
-* The mixer is hooked up to the audio interface inputs
+  * The microphones are connected to a mixer with phantom power, panned to the opposite of the speakers they face
+  * The mixer is hooked up to the audio interface inputs
 
 ## Calibration
 
