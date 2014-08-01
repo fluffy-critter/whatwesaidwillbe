@@ -35,7 +35,7 @@ void Calibrator::go(Buffer& recBuf, Buffer& playBuf) {
     std::cout << "Waiting for burst...";
     std::cout.flush();
     Buffer::iterator out = playBuf.begin();
-    int period = playBuf.count()*playBuf.channels();
+    size_t period = playBuf.count()*playBuf.channels();
     for (size_t i = 0; i < period; i++) {
         float x = i*2*M_PI/period;
         float y = (sin(x*163) + sin(x*67) + sin(x*69)/3 + sin(x*71)/5)/4;
@@ -58,7 +58,7 @@ void Calibrator::go(Buffer& recBuf, Buffer& playBuf) {
     size_t maxPos = 0;
     float maxDelta = 0;
     float lastVal = recBuf.power(frames);
-    for (size_t split = 0; split < frames; split++) {
+    for (int split = 0; split < frames; split++) {
         float val = recBuf.power(frames - split, split);
         float delta = val - lastVal;
         if (delta > maxDelta) {

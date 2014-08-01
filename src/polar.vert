@@ -8,7 +8,7 @@
 
 void main() {
     gl_Position = gl_ModelViewProjectionMatrix
-        * vec4(cos(gl_Vertex.x)*gl_Vertex.y, sin(gl_Vertex.x)*gl_Vertex.y, gl_Vertez.zw);
+        * vec4(cos(gl_Vertex.x)*gl_Vertex.y, sin(gl_Vertex.x)*gl_Vertex.y, gl_Vertex.zw);
 
     gl_FrontColor = gl_Color;
 }

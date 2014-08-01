@@ -31,16 +31,24 @@ int main(int argc, char *argv[]) try {
     Repeater::Ptr rr = std::make_shared<Repeater>();
     vis = std::make_shared<Visualizer>(rr);
 
-    glutInitContextVersion(3, 1);
+    glutInitContextVersion(2, 0);
     glutInitContextFlags (GLUT_FORWARD_COMPATIBLE);
     glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_ACCUM | GLUT_DEPTH);
+    glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_ACCUM | GLUT_DEPTH | GLUT_MULTISAMPLE);
     glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_CONTINUE_EXECUTION);
 
     glutEnterGameMode();
 
+    int err = glewInit();
+    if (err != GLEW_OK) {
+        std::cerr << "Couldn't initialize GLEW: " << glewGetErrorString(err) << std::endl;
+        return 1;
+    }
+
     glutReshapeFunc(reshapeFunc);
     glutDisplayFunc(displayFunc);
+
+    vis->onInit();
     
     boost::thread audioThread([&]() {
             ret = rr->run(argc, argv);

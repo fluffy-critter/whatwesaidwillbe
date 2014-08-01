@@ -4,7 +4,7 @@
 
 #include <GL/glew.h>
 
-#include "Resource.h"
+class Resource;
 
 class Shader {
 public:
@@ -17,7 +17,5 @@ public:
 
 private:
     GLuint mHandle;
-    GLuint mType;
-    bool mCompiled;
 };
 

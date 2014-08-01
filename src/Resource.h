@@ -1,10 +1,16 @@
 #pragma once
 
+#include <string>
+
 class Resource {
 public:
-    Resource(const char *start, const char *end): mData(start),
+    Resource(const std::string& name,
+             const char *start, const char *end): mName(name),
+                                                  mData(start),
                                                   mSize(end - start)
     {}
+
+    const std::string& name() const { return mName; }
 
     const char * const &data() const { return mData; }
     const int &size() const { return mSize; }
@@ -13,12 +19,13 @@ public:
     const char *end() const { return mData + mSize; }
 
 private:
+    std::string mName;
     const char *mData;
     int mSize;
 };
 
 #define LOAD_RESOURCE(x) ([]() {                                    \
         extern const char _binary_##x##_start, _binary_##x##_end;   \
-        return Resource(&_binary_##x##_start, &_binary_##x##_end);  \
+        return Resource(#x, &_binary_##x##_start, &_binary_##x##_end); \
     })()
 

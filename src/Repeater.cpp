@@ -260,7 +260,7 @@ int Repeater::run(int argc, char *argv[]) {
     bool shouldQuit = false;
     while (!shouldQuit) {
         {
-            int dataPos = (recPos*historySize/drum.count()) % historySize;
+            size_t dataPos = (recPos*historySize/drum.count()) % historySize;
             if (dataPos != mHistPos) {
                 mCurData = History::DataPoint();
                 mCurDataSamples = 0;
@@ -387,4 +387,5 @@ int Repeater::run(int argc, char *argv[]) {
 
     snd_pcm_close(capture);
     snd_pcm_close(playback);
+    return 0;
 }
