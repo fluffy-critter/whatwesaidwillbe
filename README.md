@@ -23,7 +23,8 @@ This is a fidgety process but what I do for now is:
 2. Run `./whatwesaidwillbe -c 1`
 3. After latency calibration completes, turn the volume down all the way
 4. Have an audio source playing in the room at a reasonable volume, about the same distance from the microphone as it is from the speaker
-5. Adjust the microphone levels up until the black spikes come to about halfway to the red circle
+5. Adjust the microphone levels up until the black spikes come to about halfway to the red circle (you'll probably need to clap once or twice to make the circle visible)
 6. Stop the audio source
-7. Turn up the output volume until a word spoken at a normal volume repeats for a long time without the resonance frequencies dominating (you can also adjust the EQ on the mixer to cut out extreme bass or treble, if your mixer supports it)
+7. Turn up the output volume until a word spoken at a normal volume repeats for a while without the resonance frequencies dominating (you can also adjust the EQ on the mixer to cut out extreme bass or treble, if your mixer supports it)
+8. Press Esc to exit, then run `./whatwesaidwillbe` on its own (or with whatever other settings you want to play with; see `./whatwesaidwillbe --help` for more)
 8. Get a grant to exhibit this in MoMA (I'm still working on that part)
