@@ -13,11 +13,11 @@
 namespace po = boost::program_options;
 
 Repeater::Repeater():
+    mState(S_STARTUP),
     mMode(M_GAIN),
     mDampenFactor(0.99),
     mLoopTime(10.0),
-    mLimiter(0.2),
-    mShutdown(false)
+    mLimiter(0.2)
 {
     mLevels[M_GAIN] = 1;
     mLevels[M_FEEDBACK] = 0.5;
@@ -32,10 +32,12 @@ Repeater::History::DataPoint::DataPoint():
     actualGain(0)
 {}
 
+Repeater::State Repeater::getState() const {
+    return mState;
+}    
 
 void Repeater::shutdown() {
-    boost::mutex::scoped_lock lock(mConfigMutex);
-    mShutdown = true;
+    mState = S_SHUTDOWN_REQUESTED;
 }
 
 Repeater::Mode Repeater::getMode() const {
@@ -183,7 +185,8 @@ int Repeater::run(int argc, char *argv[]) {
         }
 
         mHistory.history.resize(historySize);
-        mHistPos = ~0;
+        mHistPos = 0;
+        mCurDataSamples = 0;
     }
 
     std::ofstream recDump, listenDump;
@@ -236,7 +239,7 @@ int Repeater::run(int argc, char *argv[]) {
         listenBuf(NULL, bufSize*2, channels);
 
     int latencyAdjust;
-    {
+    try {
         Calibrator cc;
         cc.go(recBuf, playBuf);
 
@@ -248,6 +251,9 @@ int Repeater::run(int argc, char *argv[]) {
             feedbackThreshold = cc.getQuietPower()*3;
             std::cout << "Feedback threshold: " << feedbackThreshold << std::endl;
         }
+    } catch (const std::exception& e) {
+        std::cerr << "Calibration failed: " << e.what() << std::endl;
+        mState = S_GONE;
     }
 
     size_t recPos = loopOffset - latencyAdjust,
@@ -257,22 +263,36 @@ int Repeater::run(int argc, char *argv[]) {
 
     size_t posDigits = ceil(log(drum.count())/log(10));
 
-    bool shouldQuit = false;
-    while (!shouldQuit) {
+    while (mState != S_GONE) {
         {
             size_t dataPos = (recPos*historySize/drum.count()) % historySize;
             if (dataPos != mHistPos) {
                 mCurData = History::DataPoint();
                 mCurDataSamples = 0;
-                mHistPos = dataPos;
+
+                History::DataPoint prev = mHistory.history[mHistPos];
+                while (mHistPos != dataPos) {
+                    mHistory.history[mHistPos] = prev;
+                    mHistPos = (mHistPos + 1) % historySize;
+                }
             }
         }
 
         boost::mutex::scoped_lock lock(mConfigMutex);
-        if (mShutdown) {
-            shouldQuit = true;
-        }
-        
+        switch (mState) {
+        case S_STARTUP:
+            mState = S_RUNNING;
+            break;
+        case S_RUNNING:
+            break;
+        case S_SHUTDOWN_REQUESTED:
+            mState = S_SHUTTING_DOWN;
+            break;
+        case S_SHUTTING_DOWN:
+        case S_GONE:
+            break;
+        }            
+
         int frames = recBuf.record();
 
         if (recDump) {
@@ -352,9 +372,13 @@ int Repeater::run(int argc, char *argv[]) {
             std::cout << ' ';
         }
 
-        if (shouldQuit) {
+        if (mState == S_SHUTTING_DOWN) {
             // we're shutting down so just fade out
-            nextGain = 0;
+            nextGain = curGain - bufSize*1.0/sampleRate;
+            if (nextGain < 0) {
+                nextGain = 0;
+                mState = S_GONE;
+            }
         }
 
         playPos = drum.read(playBuf, playPos, frames, curGain, nextGain);
@@ -382,6 +406,11 @@ int Repeater::run(int argc, char *argv[]) {
             dp.limitPower = mCurData.limitPower/mCurDataSamples;
             dp.targetGain = mCurData.targetGain/mCurDataSamples;
             dp.actualGain = mCurData.actualGain/mCurDataSamples;
+
+            size_t histSize = mHistory.history.size();
+            size_t drumSize = drum.count();
+            mHistory.playPos = ((playPos - latencyAdjust + drumSize)*histSize/drumSize) % histSize;
+            mHistory.recordPos = (recPos*histSize/drumSize) % histSize;
         }
     }
 

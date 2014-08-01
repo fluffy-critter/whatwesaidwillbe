@@ -10,8 +10,18 @@
 #include "Visualizer.h"
 
 namespace {
-    // why doesn't freeglut add user data hooks? ugh
-    Visualizer::Ptr vis;
+// why doesn't freeglut add user data hooks? ugh
+Repeater::Ptr rr;
+Visualizer::Ptr vis;
+
+void keyboardFunc(unsigned char key, int, int) {
+    switch (key) {
+    case 27:
+        rr->shutdown();
+        break;
+        //default:
+        //vis->inputblah
+    }
 }
 
 void reshapeFunc(int x, int y) {
@@ -20,21 +30,25 @@ void reshapeFunc(int x, int y) {
 }
 
 void displayFunc() {
-    vis->onDisplay();
-    glutPostRedisplay();
+    if (vis->onDisplay()) {
+        glutLeaveMainLoop();
+    } else {
+        glutPostRedisplay();
+    }
 }
 
+}
 
 int main(int argc, char *argv[]) try {
     int ret;
     
-    Repeater::Ptr rr = std::make_shared<Repeater>();
+    rr = std::make_shared<Repeater>();
     vis = std::make_shared<Visualizer>(rr);
 
     glutInitContextVersion(2, 0);
     glutInitContextFlags (GLUT_FORWARD_COMPATIBLE);
     glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_ACCUM | GLUT_DEPTH | GLUT_MULTISAMPLE);
+    glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_MULTISAMPLE);
     glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_CONTINUE_EXECUTION);
 
     glutEnterGameMode();
@@ -47,6 +61,7 @@ int main(int argc, char *argv[]) try {
 
     glutReshapeFunc(reshapeFunc);
     glutDisplayFunc(displayFunc);
+    glutKeyboardFunc(keyboardFunc);
 
     vis->onInit();
     
@@ -58,7 +73,7 @@ int main(int argc, char *argv[]) try {
 
     glutMainLoop();
 
-    rr->shutdown();
+    std::cout << "awaiting shutdown..." << std::endl;
     audioThread.join();
     return ret;
 } catch (const std::exception& e) {

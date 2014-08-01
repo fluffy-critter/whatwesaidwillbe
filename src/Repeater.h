@@ -14,6 +14,15 @@ public:
     //! Run indefinitely or until we quit
     int run(int argc, char *argv[]);
 
+    enum State {
+        S_STARTUP,
+        S_RUNNING,
+        S_SHUTDOWN_REQUESTED,
+        S_SHUTTING_DOWN,
+        S_GONE
+    };
+    State getState() const;
+
     //! Signal that it's time to shutdown, from another thread
     void shutdown();
 
@@ -92,13 +101,13 @@ public:
 
 private:
     mutable boost::mutex mConfigMutex;
+    volatile State mState;
     Mode mMode;
     float mDampenFactor;
     unsigned int mSampleRate;
     float mLoopTime;
     float mLimiter;
     std::map<Mode, float> mLevels;
-    bool mShutdown;
 
     mutable boost::mutex mHistoryMutex;
     History mHistory;

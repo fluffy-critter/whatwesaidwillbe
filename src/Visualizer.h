@@ -16,12 +16,16 @@ public:
     void onResize(int x, int y);
 
     // paint the screen
-    void onDisplay();
+    bool onDisplay();
 
 private:
     Repeater::Ptr mRepeater;
     Repeater::History mHistory;
 
     int mWidth, mHeight;
+    double mZoom;
+
     ShaderProgram::Ptr mRoundShader, mSquareShader;
+
+    void drawHistory();
 };
