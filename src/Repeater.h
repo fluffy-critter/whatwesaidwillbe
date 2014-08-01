@@ -1,13 +1,15 @@
 #pragma once
 
 #include <map>
+#include <memory>
 
 #include <boost/thread/mutex.hpp>
-
 
 class Repeater {
 public:
     Repeater();
+
+    typedef std::shared_ptr<Repeater> Ptr;
 
     //! Run indefinitely or until we quit
     int run(int argc, char *argv[]);

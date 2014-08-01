@@ -229,7 +229,6 @@ int Repeater::run(int argc, char *argv[]) {
     snd_pcm_wait(playback, -1);
 
     const size_t loopOffset = sampleRate*loopDelay;
-    std::cout << "samplerate=" << sampleRate << " loopdelay=" << loopDelay << "loopOffset=" << loopOffset << std::endl;
 
     Drum drum(std::max(bufSize*4, loopOffset*2), channels);
     Buffer recBuf(capture, bufSize, channels),
