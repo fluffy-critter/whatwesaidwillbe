@@ -24,6 +24,7 @@ INCLUDE_DIRECTORIES(${GLEW_INCLUDE_DIRS})
 LINK_DIRECTORIES(${GLEW_LIBRARY_DIRS})
 ADD_DEFINITIONS(${GLEW_DEFINITIONS})
 
+
 # stuff for shaders
 # adapted from http://www.cmake.org/pipermail/cmake/2010-June/037733.html
 # (why doesn't CMake allow custom per-project build rules?)

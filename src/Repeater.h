@@ -4,15 +4,63 @@
 #include <memory>
 
 #include <boost/thread/mutex.hpp>
+#include <boost/atomic.hpp>
 
 class Repeater {
 public:
-    Repeater();
+    //! Gain mode
+    enum Mode {
+        M_GAIN, //!< Simple gain
+        M_TARGET, //!< Target power level
+        M_FEEDBACK, //!< Dynamic feedback level
+    };
+    
+    //! startup options
+    struct Options {
+        unsigned int sampleRate;
+        size_t bufSize;
+        size_t historySize;
+        float loopDelay;
+        int latencyALSA;
+        std::string captureDevice, playbackDevice;
+        std::string recDumpFile, listenDumpFile;
+        Options():
+            sampleRate(44100),
+            bufSize(1024),
+            historySize(2048),
+            loopDelay(10.0),
+            latencyALSA(120000),
+            captureDevice("default"),
+            playbackDevice("default")
+        {}
+    };
+
+    //! runtime options
+    struct Knobs {
+        float dampen;
+        float feedbackThreshold;
+        float limitPower;
+        Mode mode;
+        std::map<Mode, float> levels;
+
+        Knobs():
+            dampen(0.99),
+            feedbackThreshold(-1),
+            limitPower(0.2),
+            mode(M_GAIN)
+        {
+            levels[M_GAIN] = 1;
+            levels[M_TARGET] = 0.1;
+            levels[M_FEEDBACK] = 0.5;
+        }
+    };
+
+    Repeater(const Options&, const Knobs&);
 
     typedef std::shared_ptr<Repeater> Ptr;
 
     //! Run indefinitely or until we quit
-    int run(int argc, char *argv[]);
+    int run();
 
     enum State {
         S_STARTUP,
@@ -26,39 +74,10 @@ public:
     //! Signal that it's time to shutdown, from another thread
     void shutdown();
 
-    //! Gain mode
-    enum Mode {
-        M_GAIN, //!< Simple gain
-        M_TARGET, //!< Target power level
-        M_FEEDBACK, //!< Dynamic feedback level
-    };
+    const Options& getOptions() const { return mOptions; }
 
-    //! Get the gain mode
-    Mode getMode() const;
-
-    //! Set the gain mode
-    void setMode(Mode);
-
-    //! Get the gain level for the specified mode
-    float getModeLevel(Mode) const;
-
-    //! Set the gain level for the specified mode
-    void setModeLevel(Mode, float);
-
-    //! Get the gain dampening factor
-    float getDampenFactor() const;
-
-    //! Set the gain dampening factor
-    void setDampenFactor(float);
-
-    //! Loop time, in seconds
-    float getLoopTime() const;
-
-    //! Limiter power level
-    float getLimiterLevel() const;
-
-    //! Set limiter power level
-    void setLimiterLevel(float);
+    const Knobs& getKnobs() const { return mKnobs; }
+    void setKnobs(const Knobs&);
 
     struct History {
         //! Information about a single point in time
@@ -100,14 +119,12 @@ public:
     void getHistory(History&) const;
 
 private:
-    mutable boost::mutex mConfigMutex;
-    volatile State mState;
-    Mode mMode;
-    float mDampenFactor;
-    unsigned int mSampleRate;
-    float mLoopTime;
-    float mLimiter;
-    std::map<Mode, float> mLevels;
+    Options mOptions;
+
+    Knobs mKnobs, mKnobsNext;
+    boost::atomic<bool> mKnobsUpdated;
+
+    boost::atomic<State> mState;
 
     mutable boost::mutex mHistoryMutex;
     History mHistory;

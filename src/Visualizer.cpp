@@ -1,3 +1,7 @@
+#include <cmath>
+#include <stdlib.h>
+#include <sys/time.h>
+
 #include <GL/glew.h>
 #include <GL/freeglut.h>
 
@@ -22,7 +26,8 @@ void checkError(int line) {
 Visualizer::Visualizer(const Repeater::Ptr& rep): mRepeater(rep),
                                                   mWidth(0),
                                                   mHeight(0),
-                                                  mZoom(1)
+                                                  mZoom(1),
+                                                  mVolume(0)
 {}
 
 void Visualizer::onInit() {
@@ -113,6 +118,13 @@ public:
 void Visualizer::drawHistory() {
     glPushMatrix();
 
+/*
+    struct timespec tv;
+    clock_gettime(CLOCK_MONOTONIC, &tv);
+    double time = tv.tv_sec + tv.tv_nsec*1e-9;
+    glRotatef(time*360/mRepeater->getOptions().loopDelay/4, 0, 0, -1);
+*/
+
     mRepeater->getHistory(mHistory);
     
     mRoundShader->bind();
@@ -141,6 +153,8 @@ void Visualizer::drawHistory() {
             ei++;
 
             maxR = std::max(maxR, pi->out.y = dp.recordedPower);
+            pi->in.r = dp.recordedPower/dp.limitPower;
+            pi->out.r = dp.recordedPower;
             pi->in.a = 0.1;
             pi->out.a = 0.8;
             pi++;
@@ -166,7 +180,7 @@ void Visualizer::drawHistory() {
     glDisableClientState(GL_COLOR_ARRAY);
 
     glColor4f(1, 0, 0, 1);
-    glLineWidth(1);
+    glLineWidth(2);
     limit.draw();
 
     glColor4f(0, 1, 0, 0.5);
@@ -177,7 +191,7 @@ void Visualizer::drawHistory() {
 
     glDisableClientState(GL_VERTEX_ARRAY);
 
-    glLineWidth(5);
+    glLineWidth(2);
 
     glBegin(GL_LINES);
     glColor4f(0, 1, 0, 0.5);
@@ -187,7 +201,28 @@ void Visualizer::drawHistory() {
     glVertex3f(power[mHistory.recordPos].in.x, 0, 0);
     glVertex3f(power[mHistory.recordPos].in.x, 100, 0);
     glEnd();
-    glDisable(GL_BLEND);
+
+    {
+        size_t i = mHistory.recordPos;
+        float x = power[i].in.x;
+        const auto& dp = mHistory.history[i];
+
+        mVolume = mVolume*0.95 + dp.expectedPower*0.05;
+
+        glPointSize(10);
+        glBegin(GL_POINTS);
+        glColor4f(1, 0, 1, 0.5);
+        glVertex3f(x, mVolume*dp.targetGain, 0);
+        glColor4f(0, 0.5, 0.5, 0.5);
+        glVertex3f(x, mVolume*dp.actualGain, 0);
+        glEnd();
+        glPointSize(7);
+        glBegin(GL_POINTS);
+        glColor4f(0, 0.7, 0.7, 0.7);
+        glVertex3f(x, mVolume*dp.actualGain, 0);
+        glEnd();
+    }
+
 
     ERRORCHECK();
 

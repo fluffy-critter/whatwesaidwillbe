@@ -25,6 +25,8 @@ private:
     int mWidth, mHeight;
     double mZoom;
 
+    double mVolume;
+
     ShaderProgram::Ptr mRoundShader, mSquareShader;
 
     void drawHistory();
