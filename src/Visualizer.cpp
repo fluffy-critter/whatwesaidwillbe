@@ -60,7 +60,9 @@ Visualizer::Visualizer(const Repeater::Ptr& rep): mRepeater(rep),
                 "gain",
                 [](Repeater::Knobs& k, float a) -> float {
                     k.mode = Repeater::M_GAIN;
-                    return (k.levels[k.mode] += a/25);
+                    float& tt = k.levels[k.mode];
+                    tt += a/25;
+                    return (tt = std::max(0.0f, tt));
                 })
             )
         );
@@ -124,6 +126,19 @@ void Visualizer::onInit() {
     glGetIntegerv(GL_SAMPLES, &numSamples);
     std::cout << "Multisample configuration: " << numBufs << " buffers, "
               << numSamples << " samples" << std::endl;
+
+    // this is stupid and hacky
+    switch (mRepeater->getKnobs().mode) {
+    case Repeater::M_GAIN:
+        mCurAdjustment = 'g';
+        break;
+    case Repeater::M_TARGET:
+        mCurAdjustment = 't';
+        break;
+    case Repeater::M_FEEDBACK:
+        mCurAdjustment = 'f';
+        break;
+    }
 }
 
 void Visualizer::onResize(int x, int y) {
