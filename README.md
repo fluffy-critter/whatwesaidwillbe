@@ -29,7 +29,13 @@ This is a fidgety process but what I do for now is:
 8. Press Esc to exit, then run `./whatwesaidwillbe` on its own (or with whatever other settings you want to play with; see `./whatwesaidwillbe --help` for more)
 8. Get a grant to exhibit this in MoMA (I'm still working on that part)
 
-## Options
+## User interface
+
+* `Esc`: quit
+* letter keys: set a parameter; or shows a list if unknown key (`?` is always safe for that)
+* up/down: adjust the current parameter, if any
+
+## Startup Options
 
 ### Configurations
 * `--list-devices`: List the known ALSA devices. Somehow this can be used for `--capture` and `--playback` but I just use pulseaudio anyway.
@@ -44,8 +50,6 @@ This is a fidgety process but what I do for now is:
 * `--playDump`: Record the playback buffer to a raw PCM file. Pretty much just `--recDump` but delayed and with the volume level changes applied.
 
 ### Knobs
-
-Eventually these will also be changeable at runtime.
 
 * `--dampen`/`-d`: How much to dampen volume adjustment by. 0 means instantly go to the target volume, 1 means never change the volume at all. This is applied on a per-buffer basis.
 * `--feedThresh`/`-F`: The lower recording level to start applying the feedback model to

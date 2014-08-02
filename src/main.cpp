@@ -21,9 +21,13 @@ void keyboardFunc(unsigned char key, int, int) {
     case 27:
         rr->shutdown();
         break;
-        //default:
-        //vis->inputblah
+    default:
+        vis->onKeyboard(key);
     }
+}
+
+void specialFunc(int key, int, int) {
+    vis->onSpecialKey(key);
 }
 
 void reshapeFunc(int x, int y) {
@@ -149,6 +153,7 @@ int main(int argc, char *argv[]) try {
     glutReshapeFunc(reshapeFunc);
     glutDisplayFunc(displayFunc);
     glutKeyboardFunc(keyboardFunc);
+    glutSpecialFunc(specialFunc);
 
     vis->onInit();
     

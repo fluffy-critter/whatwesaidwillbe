@@ -1,6 +1,7 @@
 #include <cmath>
 #include <stdlib.h>
 #include <sys/time.h>
+#include <sstream>
 
 #include <GL/glew.h>
 #include <GL/freeglut.h>
@@ -27,8 +28,77 @@ Visualizer::Visualizer(const Repeater::Ptr& rep): mRepeater(rep),
                                                   mWidth(0),
                                                   mHeight(0),
                                                   mZoom(1),
-                                                  mVolume(0)
-{}
+                                                  mVolume(0),
+                                                  mCurAdjustment(0)
+{
+    mAdjustments.insert(
+        std::make_pair(
+            'f', Adjustment(
+                "feedback",
+                [](Repeater::Knobs& k, float a) -> float {
+                    k.mode = Repeater::M_FEEDBACK;
+                    float& tt = k.levels[k.mode];
+                    tt += a/25;
+                    return (tt = std::max(0.0f, std::min(1.0f, tt)));
+                })
+            )
+        );
+    mAdjustments.insert(
+        std::make_pair(
+            'F', Adjustment(
+                "threshold",
+                [](Repeater::Knobs& k, float a) -> float {
+                    float& tt = k.feedbackThreshold;
+                    tt *= 1 + a/10;
+                    return (tt = std::max(1e-6f, std::min(1.0f, tt)));
+                })
+            )
+        );
+    mAdjustments.insert(
+        std::make_pair(
+            'g', Adjustment(
+                "gain",
+                [](Repeater::Knobs& k, float a) -> float {
+                    k.mode = Repeater::M_GAIN;
+                    return (k.levels[k.mode] += a/25);
+                })
+            )
+        );
+    mAdjustments.insert(
+        std::make_pair(
+            't', Adjustment(
+                "target",
+                [](Repeater::Knobs& k, float a) -> float {
+                    k.mode = Repeater::M_TARGET;
+                    float& tt = k.levels[k.mode];
+                    tt += a/25;
+                    return (tt = std::max(0.0f, std::min(1.0f, tt)));
+                })
+            )
+        );
+    mAdjustments.insert(
+        std::make_pair(
+            'l', Adjustment(
+                "limit",
+                [](Repeater::Knobs& k, float a) -> float {
+                    float& tt = k.limitPower;
+                    tt += a/100;
+                    return (tt = std::max(0.01f, std::min(1.0f, tt)));
+                })
+            )
+        );
+    mAdjustments.insert(
+        std::make_pair(
+            'd', Adjustment(
+                "dampen",
+                [](Repeater::Knobs& k, float a) -> float {
+                    float& tt = k.dampen;
+                    tt *= 1 + a/25;
+                    return (tt = std::max(1e-6f, std::min(1.0f, tt)));
+                })
+            )
+        );
+}
 
 void Visualizer::onInit() {
     Shader::Ptr rect = std::make_shared<Shader>(GL_VERTEX_SHADER,
@@ -52,7 +122,8 @@ void Visualizer::onInit() {
     GLint numBufs, numSamples;
     glGetIntegerv(GL_SAMPLE_BUFFERS, &numBufs);
     glGetIntegerv(GL_SAMPLES, &numSamples);
-    std::cout << "Multisample configuration: " << numBufs << " buffers, " << numSamples << " samples" << std::endl;
+    std::cout << "Multisample configuration: " << numBufs << " buffers, "
+              << numSamples << " samples" << std::endl;
 }
 
 void Visualizer::onResize(int x, int y) {
@@ -119,14 +190,14 @@ void Visualizer::drawHistory() {
     glPushMatrix();
 
 /*
-    struct timespec tv;
-    clock_gettime(CLOCK_MONOTONIC, &tv);
-    double time = tv.tv_sec + tv.tv_nsec*1e-9;
-    glRotatef(time*360/mRepeater->getOptions().loopDelay/4, 0, 0, -1);
+  struct timespec tv;
+  clock_gettime(CLOCK_MONOTONIC, &tv);
+  double time = tv.tv_sec + tv.tv_nsec*1e-9;
+  glRotatef(time*360/mRepeater->getOptions().loopDelay/4, 0, 0, -1);
 */
 
     mRepeater->getHistory(mHistory);
-    
+
     mRoundShader->bind();
     ERRORCHECK();
 
@@ -229,6 +300,116 @@ void Visualizer::drawHistory() {
     glPopMatrix();
 }
 
+namespace {
+double getTime() {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec + ts.tv_nsec*1e-9;
+}
+}
+
+void Visualizer::onKeyboard(unsigned char c) {
+    mLastAdjustTime = getTime();
+    mCurAdjustment = c;
+    auto adj = mAdjustments.find(c);
+    if (adj != mAdjustments.end()) {
+        Repeater::Knobs k = mRepeater->getKnobs();
+        adj->second.cb(k, 0);
+        mRepeater->setKnobs(k);
+        std::cout << "set mode to " << adj->second.name << std::endl;
+    }
+}
+
+void Visualizer::onSpecialKey(int c) {
+    mLastAdjustTime = getTime();
+    float adjust = 0;
+    std::cout << "specialKey " << c << std::endl;
+    switch (c) {
+    case GLUT_KEY_UP:
+        adjust = 1;
+        break;
+    case GLUT_KEY_DOWN:
+        adjust = -1;
+        break;
+    }
+
+    auto adj = mAdjustments.find(mCurAdjustment);
+    if (adj != mAdjustments.end()) {
+        Repeater::Knobs k = mRepeater->getKnobs();
+        float r = adj->second.cb(k, adjust);
+        mRepeater->setKnobs(k);
+        std::cout << "adjusted " << adj->second.name << " to " << r << std::endl;
+    }
+}
+
+void Visualizer::drawBanner() {
+    mSquareShader->bind();
+
+    {
+        std::stringstream message;
+
+        if (mCurAdjustment && getTime() - mLastAdjustTime < 3) {
+            auto adj = mAdjustments.find(mCurAdjustment);
+            if (adj != mAdjustments.end()) {
+                glColor4f(0,0,0.5,1);
+                Repeater::Knobs k = mRepeater->getKnobs();
+                message << adj->second.name << ": " << adj->second.cb(k, 0.0f);
+            } else {
+                glColor4f(0.5,0,0,1);
+                for (auto list : mAdjustments) {
+                    message << list.first << ':' << list.second.name << ' ';
+                }
+            }
+        } else {
+            switch (mRepeater->getState()) {
+            case Repeater::S_STARTUP:
+                glColor4f(1, 0, 0, 1);
+                message << "acquiring signal";
+                break;
+            case Repeater::S_RUNNING:
+                glColor4f(0, 0, 0, 0.7);
+                message << "whatwesaidwillbe";
+                break;
+            case Repeater::S_SHUTDOWN_REQUESTED:
+            case Repeater::S_SHUTTING_DOWN:
+            case Repeater::S_GONE:
+                glColor4f(0, 0, 1, 1);
+                message << "whatwesaidonlywas";
+                break;
+            }
+        }
+
+        void *font = GLUT_BITMAP_HELVETICA_18;
+        glRasterPos2f(-mWidth*1.0/mHeight, -1.0 + 9.0/mHeight);
+        glutBitmapString(font, (const unsigned char *)message.str().c_str());
+    }
+
+    if (0) {
+        std::stringstream message;
+        const Repeater::Knobs& k = mRepeater->getKnobs();
+        message << "mode: ";
+        switch (k.mode) {
+        case Repeater::M_GAIN:
+            message << "gain";
+            break;
+        case Repeater::M_TARGET:
+            message << "target";
+            break;
+        case Repeater::M_FEEDBACK:
+            message << "feedback";
+            break;
+        }
+        message << " " << k.levels.find(k.mode)->second;
+        size_t width = glutBitmapLength(GLUT_BITMAP_HELVETICA_18,
+                                        (const unsigned char *)message.str().c_str());
+        glRasterPos2f((mWidth - 2*width)*1.0/mHeight, -1);
+
+        glColor4f(0, 0, 0, 1);
+        glutBitmapString(GLUT_BITMAP_HELVETICA_18,
+                         (const unsigned char *)message.str().c_str());
+    }
+}
+
 bool Visualizer::onDisplay() {
     glViewport(0, 0, mWidth, mHeight);
 
@@ -248,34 +429,13 @@ bool Visualizer::onDisplay() {
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    mSquareShader->bind();
-    glRasterPos2f(-mWidth*1.0/mHeight, -1);
-    const char *message;
-    switch (mRepeater->getState()) {
-    case Repeater::S_STARTUP:
-        glColor4f(1, 0, 0, 1);
-        message = "acquiring signal";
-        break;
-    case Repeater::S_RUNNING:
-        glColor4f(0.01, 0.01, 0.01, 1);
-        message = "whatwesaidwillbe";
-        break;
-    case Repeater::S_SHUTDOWN_REQUESTED:
-    case Repeater::S_SHUTTING_DOWN:
-    case Repeater::S_GONE:
-        glColor4f(0, 0, 1, 1);
-        message = "whatwesaidonlywas";
-        break;
-    }
-
-    glutBitmapString(GLUT_BITMAP_HELVETICA_18, (const unsigned char *)message);
-
     if (mRepeater->getState() != Repeater::S_STARTUP) {
         drawHistory();
     }
+
+    drawBanner();
 
     glutSwapBuffers();
 
     return mRepeater->getState() == Repeater::S_GONE;
 }
-
