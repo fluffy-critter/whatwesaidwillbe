@@ -1,11 +1,11 @@
-#include <cmath>
-#include <stdexcept>
-#include <iostream>
+#include "Buffer.h"
+#include "Calibrator.h"
 
 #include <boost/throw_exception.hpp>
 
-#include "Buffer.h"
-#include "Calibrator.h"
+#include <cmath>
+#include <stdexcept>
+#include <iostream>
 
 Calibrator::Calibrator():
     mTrials(0),

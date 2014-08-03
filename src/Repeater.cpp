@@ -1,13 +1,12 @@
-#include <fstream>
-#include <iomanip>
-#include <iostream>
-
-#include <boost/throw_exception.hpp>
-
 #include "Buffer.h"
 #include "Calibrator.h"
 #include "Drum.h"
 #include "Repeater.h"
+
+#include <boost/throw_exception.hpp>
+
+#include <fstream>
+#include <iostream>
 
 Repeater::Repeater(const Options& opts, const Knobs& knobs):
     mOptions(opts),

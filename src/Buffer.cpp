@@ -1,9 +1,9 @@
-#include <cmath>
-#include <stdexcept>
+#include "Buffer.h"
 
 #include <boost/throw_exception.hpp>
 
-#include "Buffer.h"
+#include <cmath>
+#include <stdexcept>
 
 Buffer::Buffer(snd_pcm_t* pipe,
                size_t samples,

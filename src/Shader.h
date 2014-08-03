@@ -1,8 +1,8 @@
 #pragma once
 
-#include <memory>
-
 #include <GL/glew.h>
+
+#include <memory>
 
 class Resource;
 

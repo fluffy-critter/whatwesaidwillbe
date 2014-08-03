@@ -1,9 +1,10 @@
 #pragma once
 
+#include <alsa/asoundlib.h>
+
 #include <cstddef>
 #include <cstdint>
 #include <vector>
-#include <alsa/asoundlib.h>
 
 class Buffer {
 public:

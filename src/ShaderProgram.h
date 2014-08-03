@@ -1,11 +1,11 @@
 #pragma once
 
-#include <memory>
-#include <set>
+#include "Shader.h"
 
 #include <GL/glew.h>
 
-#include "Shader.h"
+#include <memory>
+#include <set>
 
 class ShaderProgram {
 public:

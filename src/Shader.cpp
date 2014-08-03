@@ -1,9 +1,10 @@
-#include <boost/throw_exception.hpp>
-#include <stdexcept>
-#include <iostream>
-
 #include "Shader.h"
 #include "Resource.h"
+
+#include <boost/throw_exception.hpp>
+
+#include <iostream>
+#include <stdexcept>
 
 Shader::Shader(GLuint type, const Resource& r) {
     mHandle = glCreateShader(type);

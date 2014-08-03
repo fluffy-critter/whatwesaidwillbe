@@ -1,10 +1,10 @@
 #pragma once
 
-#include <map>
-#include <memory>
-
 #include <boost/thread/mutex.hpp>
 #include <boost/atomic.hpp>
+
+#include <map>
+#include <memory>
 
 class Repeater {
 public:

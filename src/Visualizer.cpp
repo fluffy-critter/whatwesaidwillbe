@@ -1,13 +1,13 @@
-#include <cmath>
-#include <stdlib.h>
-#include <sys/time.h>
-#include <sstream>
-
-#include <GL/glew.h>
-#include <GL/freeglut.h>
-
 #include "Resource.h"
 #include "Visualizer.h"
+
+#include <GL/freeglut.h>
+#include <GL/glew.h>
+
+#include <cmath>
+#include <sstream>
+#include <stdlib.h>
+#include <sys/time.h>
 
 namespace {
 void checkError(int line) {

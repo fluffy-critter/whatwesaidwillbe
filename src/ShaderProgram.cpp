@@ -1,6 +1,6 @@
-#include <GL/glew.h>
-
 #include "ShaderProgram.h"
+
+#include <GL/glew.h>
 
 ShaderProgram::ShaderProgram(): mLinked(false) {
     mHandle = glCreateProgram();

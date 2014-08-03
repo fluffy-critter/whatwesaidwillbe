@@ -1,9 +1,9 @@
-#include <algorithm>
-#include <stdexcept>
+#include "Drum.h"
 
 #include <boost/throw_exception.hpp>
 
-#include "Drum.h"
+#include <algorithm>
+#include <stdexcept>
 
 Drum::Drum(size_t samples, size_t channels): Buffer(NULL, samples, channels)
 {}
