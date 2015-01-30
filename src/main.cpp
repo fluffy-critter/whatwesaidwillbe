@@ -143,6 +143,7 @@ int main(int argc, char *argv[]) try {
     vis = std::make_shared<Visualizer>(rr);
 
     glutEnterGameMode();
+    glutSetCursor(GLUT_CURSOR_NONE);
 
     int err = glewInit();
     if (err != GLEW_OK) {

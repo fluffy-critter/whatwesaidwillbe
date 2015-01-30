@@ -29,7 +29,8 @@ Visualizer::Visualizer(const Repeater::Ptr& rep): mRepeater(rep),
                                                   mHeight(0),
                                                   mZoom(1),
                                                   mVolume(0),
-                                                  mCurAdjustment(0)
+                                                  mCurAdjustment(0),
+						  mLastAdjustTime(0)
 {
     mAdjustments.insert(
         std::make_pair(

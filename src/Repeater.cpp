@@ -17,6 +17,11 @@ Repeater::Repeater(const Options& opts, const Knobs& knobs):
 {
 }
 
+Repeater::History::History():
+    playPos(0),
+    recordPos(0)
+{}
+
 Repeater::History::DataPoint::DataPoint():
     recordedPower(0),
     expectedPower(0),

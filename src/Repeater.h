@@ -113,6 +113,8 @@ public:
 
         //! Record head index
         DataPoints::size_type recordPos;
+
+	History();
     };
 
     //! Get a copy of the current history snapshot
