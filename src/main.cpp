@@ -2,7 +2,7 @@
 #include <stdexcept>
 
 #include <boost/program_options.hpp>
-#include <boost/thread.hpp>
+#include <thread>
 
 #include <alsa/asoundlib.h>
 #include <GL/glew.h>
@@ -37,10 +37,9 @@ void reshapeFunc(int x, int y) {
 
 void displayFunc() {
     if (vis->onDisplay()) {
-        exit(0);
-    } else {
-        glutPostRedisplay();
+	glutLeaveMainLoop();
     }
+    glutPostRedisplay();
 }
 
 }
@@ -165,7 +164,7 @@ int main(int argc, char *argv[]) try {
 
     vis->onInit();
     
-    boost::thread audioThread(
+    std::thread audioThread(
         [&]() {
             try {
                 ret = rr->run();
