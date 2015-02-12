@@ -46,7 +46,7 @@ size_t Drum::read(Buffer& buf, ssize_t offset, size_t n) const {
     return start + first;
 }
 
-size_t Drum::read(Buffer& buf, ssize_t offset, size_t n, float gain0, float gain1) const {
+size_t Drum::read(Buffer& buf, ssize_t offset, size_t n, double gain0, double gain1) const {
     if (buf.channels() != channels()) {
         BOOST_THROW_EXCEPTION(std::runtime_error("Mismatched channel count"));
     }
@@ -75,7 +75,7 @@ size_t Drum::read(Buffer& buf, ssize_t offset, size_t n, float gain0, float gain
     return (start + n) % count();
 }
 
-float Drum::maxGain(size_t offset, size_t n) const {
+double Drum::maxGain(size_t offset, size_t n) const {
     size_t start = offset % count();
     int16_t minVal, maxVal;
 

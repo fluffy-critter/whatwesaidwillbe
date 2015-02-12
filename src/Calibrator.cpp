@@ -37,8 +37,8 @@ void Calibrator::go(Buffer& recBuf, Buffer& playBuf) {
     Buffer::iterator out = playBuf.begin();
     size_t period = playBuf.count()*playBuf.channels();
     for (size_t i = 0; i < period; i++) {
-        float x = i*2*M_PI/period;
-        float y = (sin(x*163) + sin(x*67) + sin(x*69)/3 + sin(x*71)/5)/4;
+        double x = i*2*M_PI/period;
+        double y = (sin(x*163) + sin(x*67) + sin(x*69)/3 + sin(x*71)/5)/4;
         *out++ = y*32767;
     }
 
@@ -56,11 +56,11 @@ void Calibrator::go(Buffer& recBuf, Buffer& playBuf) {
 
     // figure out whereabouts the burst started (this is naive but who cares)
     size_t maxPos = 0;
-    float maxDelta = 0;
-    float lastVal = recBuf.power(frames);
+    double maxDelta = 0;
+    double lastVal = recBuf.power(frames);
     for (int split = 0; split < frames; split++) {
-        float val = recBuf.power(frames - split, split);
-        float delta = val - lastVal;
+        double val = recBuf.power(frames - split, split);
+        double delta = val - lastVal;
         if (delta > maxDelta) {
             maxPos = split;
             maxDelta = delta;

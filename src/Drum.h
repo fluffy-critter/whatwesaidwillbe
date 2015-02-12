@@ -29,8 +29,8 @@ public:
      *  @param gain0 Start gain value
      *  @param gain1 End gain value
      */
-    size_t read(Buffer& buf, ssize_t offset, size_t n, float gain0, float gain1) const;
+    size_t read(Buffer& buf, ssize_t offset, size_t n, double gain0, double gain1) const;
 
     //! Get the maximum allowable gain for a segment
-    float maxGain(size_t offset, size_t n) const;
+    double maxGain(size_t offset, size_t n) const;
 };

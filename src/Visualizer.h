@@ -39,7 +39,7 @@ private:
 
     struct Adjustment {
         std::string name;
-        typedef std::function<float(Repeater::Knobs&,float)> Callback;
+        typedef std::function<double(Repeater::Knobs&,double)> Callback;
         Callback cb;
         Adjustment(const std::string& name, const Callback& cb): name(name), cb(cb) {}
     };

@@ -54,6 +54,7 @@ int main(int argc, char *argv[]) try {
 
     Repeater::Options opts;
     Repeater::Knobs knobs;
+    bool fullScreen = true;
 
     {
         namespace po = boost::program_options;
@@ -69,7 +70,7 @@ int main(int argc, char *argv[]) try {
             ("bufSize,k", po::value<size_t>(&opts.bufSize)->default_value(opts.bufSize), "buffer size")
             ("historySize,H", po::value<size_t>(&opts.historySize)->default_value(opts.historySize),
              "Size of the history buffer")
-            ("loopDelay,c", po::value<float>(&opts.loopDelay)->default_value(opts.loopDelay),
+            ("loopDelay,c", po::value<double>(&opts.loopDelay)->default_value(opts.loopDelay),
              "loop delay, in seconds")
             ("latency,q", po::value<int>(&opts.latencyALSA)->default_value(opts.latencyALSA),
              "ALSA latency, in microseconds")
@@ -80,22 +81,24 @@ int main(int argc, char *argv[]) try {
             ("recDump", po::value<std::string>(&opts.recDumpFile), "Recording dump file (raw PCM)")
             ("listenDump", po::value<std::string>(&opts.listenDumpFile), "Play dump file (raw PCM)")
             
-            ("dampen,d", po::value<float>(&knobs.dampen)->default_value(knobs.dampen),
+            ("dampen,d", po::value<double>(&knobs.dampen)->default_value(knobs.dampen),
              "dampening factor")
-            ("feedThresh,F", po::value<float>(&knobs.feedbackThreshold),
+            ("feedThresh,F", po::value<double>(&knobs.feedbackThreshold),
              "feedback adjustment threshold; < 0 = autodetect at startup")
-            ("limiter,L", po::value<float>(&knobs.limitPower)->default_value(knobs.limitPower), "power limiter")
+            ("limiter,L", po::value<double>(&knobs.limitPower)->default_value(knobs.limitPower), "power limiter")
             ("mode,m", po::value<std::string>(&initMode)->default_value("gain"),
              "initial volume model (gain, feedback, target)")
-            ("feedback,f", po::value<float>(&knobs.levels[Repeater::M_FEEDBACK])
+            ("feedback,f", po::value<double>(&knobs.levels[Repeater::M_FEEDBACK])
              ->default_value(knobs.levels[Repeater::M_FEEDBACK]),
              "feedback factor")
-            ("target,t", po::value<float>(&knobs.levels[Repeater::M_TARGET])
+            ("target,t", po::value<double>(&knobs.levels[Repeater::M_TARGET])
              ->default_value(knobs.levels[Repeater::M_TARGET]),
              "target power level")
-            ("gain,g", po::value<float>(&knobs.levels[Repeater::M_GAIN])
+            ("gain,g", po::value<double>(&knobs.levels[Repeater::M_GAIN])
              ->default_value(knobs.levels[Repeater::M_GAIN]),
              "ordinary gain")
+            ("fullscreen,S", po::value<bool>(&fullScreen)->default_value(fullScreen),
+             "fullscreen mode")
             ;
 
         po::variables_map vm;
@@ -142,8 +145,12 @@ int main(int argc, char *argv[]) try {
     rr = std::make_shared<Repeater>(opts, knobs);
     vis = std::make_shared<Visualizer>(rr);
 
-    glutEnterGameMode();
-    glutSetCursor(GLUT_CURSOR_NONE);
+    if (fullScreen) {
+        glutEnterGameMode();
+        glutSetCursor(GLUT_CURSOR_NONE);
+    } else {
+        glutCreateWindow("whatwesaidwillbe");
+    }
 
     int err = glewInit();
     if (err != GLEW_OK) {

@@ -36,11 +36,11 @@ Visualizer::Visualizer(const Repeater::Ptr& rep): mRepeater(rep),
         std::make_pair(
             'f', Adjustment(
                 "feedback",
-                [](Repeater::Knobs& k, float a) -> float {
+                [](Repeater::Knobs& k, double a) -> double {
                     k.mode = Repeater::M_FEEDBACK;
-                    float& tt = k.levels[k.mode];
+                    double& tt = k.levels[k.mode];
                     tt += a/25;
-                    return (tt = std::max(0.0f, std::min(1.0f, tt)));
+                    return (tt = std::max(0.0, std::min(1.0, tt)));
                 })
             )
         );
@@ -48,10 +48,10 @@ Visualizer::Visualizer(const Repeater::Ptr& rep): mRepeater(rep),
         std::make_pair(
             'F', Adjustment(
                 "threshold",
-                [](Repeater::Knobs& k, float a) -> float {
-                    float& tt = k.feedbackThreshold;
+                [](Repeater::Knobs& k, double a) -> double {
+                    double& tt = k.feedbackThreshold;
                     tt *= 1 + a/10;
-                    return (tt = std::max(1e-6f, std::min(1.0f, tt)));
+                    return (tt = std::max(1e-6, std::min(1.0, tt)));
                 })
             )
         );
@@ -59,11 +59,11 @@ Visualizer::Visualizer(const Repeater::Ptr& rep): mRepeater(rep),
         std::make_pair(
             'g', Adjustment(
                 "gain",
-                [](Repeater::Knobs& k, float a) -> float {
+                [](Repeater::Knobs& k, double a) -> double {
                     k.mode = Repeater::M_GAIN;
-                    float& tt = k.levels[k.mode];
+                    double& tt = k.levels[k.mode];
                     tt += a/25;
-                    return (tt = std::max(0.0f, tt));
+                    return (tt = std::max(0.0, tt));
                 })
             )
         );
@@ -71,11 +71,11 @@ Visualizer::Visualizer(const Repeater::Ptr& rep): mRepeater(rep),
         std::make_pair(
             't', Adjustment(
                 "target",
-                [](Repeater::Knobs& k, float a) -> float {
+                [](Repeater::Knobs& k, double a) -> double {
                     k.mode = Repeater::M_TARGET;
-                    float& tt = k.levels[k.mode];
+                    double& tt = k.levels[k.mode];
                     tt += a/25;
-                    return (tt = std::max(0.0f, std::min(1.0f, tt)));
+                    return (tt = std::max(0.0, std::min(1.0, tt)));
                 })
             )
         );
@@ -83,10 +83,10 @@ Visualizer::Visualizer(const Repeater::Ptr& rep): mRepeater(rep),
         std::make_pair(
             'l', Adjustment(
                 "limit",
-                [](Repeater::Knobs& k, float a) -> float {
-                    float& tt = k.limitPower;
+                [](Repeater::Knobs& k, double a) -> double {
+                    double& tt = k.limitPower;
                     tt += a/100;
-                    return (tt = std::max(0.01f, std::min(1.0f, tt)));
+                    return (tt = std::max(0.01, std::min(1.0, tt)));
                 })
             )
         );
@@ -94,10 +94,10 @@ Visualizer::Visualizer(const Repeater::Ptr& rep): mRepeater(rep),
         std::make_pair(
             'd', Adjustment(
                 "dampen",
-                [](Repeater::Knobs& k, float a) -> float {
-                    float& tt = k.dampen;
-                    tt *= 1 + a/25;
-                    return (tt = std::max(1e-6f, std::min(1.0f, tt)));
+                [](Repeater::Knobs& k, double a) -> double {
+                    double& tt = k.dampen;
+                    tt *= (3 + a)/3;
+                    return (tt = std::max(1.0, tt));
                 })
             )
         );
@@ -149,7 +149,7 @@ void Visualizer::onResize(int x, int y) {
 
 namespace {
 struct Point {
-    float x, y, z, r, g, b, a;
+    double x, y, z, r, g, b, a;
     Point(): x(0), y(0), z(0), r(0), g(0), b(0), a(0) {}
 };
 typedef std::vector<Point> Points;
@@ -170,8 +170,8 @@ public:
     }
 
     void draw() {
-        glVertexPointer(3, GL_FLOAT, sizeof(Point), &front().x);
-        glColorPointer(4, GL_FLOAT, sizeof(Point), &front().r);
+        glVertexPointer(3, GL_DOUBLE, sizeof(Point), &front().x);
+        glColorPointer(4, GL_DOUBLE, sizeof(Point), &front().r);
         glDrawArrays(GL_LINE_LOOP, 0, size());
     }
 };
@@ -189,14 +189,14 @@ public:
 
     void draw() {
         back() = front();
-        glVertexPointer(3, GL_FLOAT, sizeof(Point), &front().in.x);
-        glColorPointer(4, GL_FLOAT, sizeof(Point), &front().in.r);
+        glVertexPointer(3, GL_DOUBLE, sizeof(Point), &front().in.x);
+        glColorPointer(4, GL_DOUBLE, sizeof(Point), &front().in.r);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, size()*2);
     }
 
     void drawOutline() {
-        glVertexPointer(3, GL_FLOAT, sizeof(Span), &front().out.x);
-        glColorPointer(4, GL_FLOAT, sizeof(Span), &front().out.r);
+        glVertexPointer(3, GL_DOUBLE, sizeof(Span), &front().out.x);
+        glColorPointer(4, GL_DOUBLE, sizeof(Span), &front().out.r);
         glDrawArrays(GL_LINE_LOOP, 0, size());
     }
 };
@@ -219,7 +219,7 @@ void Visualizer::drawHistory() {
 
     const size_t count = mHistory.history.size();
 
-    float maxR = 1e-6;
+    double maxR = 1e-6;
 
     // TODO make these persistent
     QuadLoop power(count);
@@ -291,7 +291,7 @@ void Visualizer::drawHistory() {
 
     {
         size_t i = mHistory.recordPos;
-        float x = power[i].in.x;
+        double x = power[i].in.x;
         const auto& dp = mHistory.history[i];
 
         mVolume = mVolume*0.95 + dp.expectedPower*0.05;
@@ -338,7 +338,7 @@ void Visualizer::onKeyboard(unsigned char c) {
 
 void Visualizer::onSpecialKey(int c) {
     mLastAdjustTime = getTime();
-    float adjust = 0;
+    double adjust = 0;
     std::cout << "specialKey " << c << std::endl;
     switch (c) {
     case GLUT_KEY_UP:
@@ -352,7 +352,7 @@ void Visualizer::onSpecialKey(int c) {
     auto adj = mAdjustments.find(mCurAdjustment);
     if (adj != mAdjustments.end()) {
         Repeater::Knobs k = mRepeater->getKnobs();
-        float r = adj->second.cb(k, adjust);
+        double r = adj->second.cb(k, adjust);
         mRepeater->setKnobs(k);
         std::cout << "adjusted " << adj->second.name << " to " << r << std::endl;
     }

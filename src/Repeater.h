@@ -20,7 +20,7 @@ public:
         unsigned int sampleRate;
         size_t bufSize;
         size_t historySize;
-        float loopDelay;
+        double loopDelay;
         int latencyALSA;
         std::string captureDevice, playbackDevice;
         std::string recDumpFile, listenDumpFile;
@@ -37,14 +37,14 @@ public:
 
     //! runtime options
     struct Knobs {
-        float dampen;
-        float feedbackThreshold;
-        float limitPower;
+        double dampen;
+        double feedbackThreshold;
+        double limitPower;
         Mode mode;
-        std::map<Mode, float> levels;
+        std::map<Mode, double> levels;
 
         Knobs():
-            dampen(0.99),
+            dampen(5),
             feedbackThreshold(-1),
             limitPower(0.2),
             mode(M_GAIN)
@@ -86,19 +86,19 @@ public:
             Mode mode;
 
             //! Recorded power level
-            float recordedPower;
+            double recordedPower;
 
             //! Expected power level
-            float expectedPower;
+            double expectedPower;
 
             //! Limiter level
-            float limitPower;
+            double limitPower;
 
             //! Target gain (per model)
-            float targetGain;
+            double targetGain;
 
             //! Actual gain (per limiter and damping)
-            float actualGain;
+            double actualGain;
 
             DataPoint();
         };

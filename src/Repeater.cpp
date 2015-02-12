@@ -35,7 +35,12 @@ Repeater::State Repeater::getState() const {
 }    
 
 void Repeater::shutdown() {
-    mState = S_SHUTDOWN_REQUESTED;
+    if (mState == S_SHUTDOWN_REQUESTED
+        || mState == S_SHUTTING_DOWN) {
+        mState = S_GONE;
+    } else {
+        mState = S_SHUTDOWN_REQUESTED;
+    }
 }
 
 void Repeater::setKnobs(const Knobs& k) {
@@ -103,7 +108,7 @@ int Repeater::run() {
     snd_pcm_wait(playback, -1);
 
     const unsigned int sampleRate = mOptions.sampleRate;
-    const float loopDelay = mOptions.loopDelay;
+    const double loopDelay = mOptions.loopDelay;
     const size_t bufSize = mOptions.bufSize;
 
     const size_t loopOffset = sampleRate*loopDelay;
@@ -134,7 +139,7 @@ int Repeater::run() {
     size_t recPos = loopOffset - latencyAdjust,
         playPos = 0;
 
-    float curGain = 0, nextGain = 0;
+    double curGain = 0, nextGain = 0;
 
     while (mState != S_GONE) {
         while (mKnobsUpdated.fetch_and(false)) {
@@ -184,8 +189,8 @@ int Repeater::run() {
             frameStats.expectedPower = expected;
 
             if (actual > 0) {
-                float target;
-                float level = k.levels.find(k.mode)->second;
+                double target;
+                double level = k.levels.find(k.mode)->second;
                 switch (k.mode) {
                 case M_GAIN:
                     target = level;
@@ -217,11 +222,12 @@ int Repeater::run() {
                     target = target*k.limitPower/actual;
                 }
 
-                nextGain = curGain*k.dampen + target*(1.0 - k.dampen);
+                double factor = pow(0.9, k.dampen);
+                nextGain = curGain*(1 - factor) + target*factor;
             }
         }
 
-        float maxGain = drum.maxGain(playPos, frames);
+        double maxGain = drum.maxGain(playPos, frames);
         nextGain = std::min(maxGain, nextGain);
 
         if (mState == S_SHUTTING_DOWN) {
