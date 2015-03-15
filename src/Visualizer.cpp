@@ -96,8 +96,8 @@ Visualizer::Visualizer(const Repeater::Ptr& rep): mRepeater(rep),
                 "dampen",
                 [](Repeater::Knobs& k, double a) -> double {
                     double& tt = k.dampen;
-                    tt *= (3 + a)/3;
-                    return (tt = std::max(1.0, tt));
+                    tt = (tt + (a + 1)/2)/2;
+                    return (tt = std::max(0.0, std::min(1.0, tt)));
                 })
             )
         );
