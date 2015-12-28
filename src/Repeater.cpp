@@ -238,7 +238,7 @@ int Repeater::run() {
         if (mState == S_SHUTTING_DOWN) {
             // we're shutting down so just fade out
             nextGain = curGain - bufSize*1.0/sampleRate;
-            if (nextGain < 0) {
+            if (nextGain <= 0) {
                 nextGain = 0;
                 mState = S_GONE;
             }
