@@ -200,7 +200,7 @@ int Repeater::run() {
                     if (expected > k.feedbackThreshold && actual > k.feedbackThreshold) {
                         // we have sound, and we are expecting sound
                         target = (expected - k.feedbackThreshold)*level
-                            /(actual - k.feedbackThreshold);
+                            /(actual - k.feedbackThreshold) + k.feedbackThreshold;
                     } else if (expected < k.feedbackThreshold) {
                         // we have no sound yet, so just set the gain to 1
                         target = 1;
@@ -211,19 +211,24 @@ int Repeater::run() {
                     break;
 
                 case M_TARGET:
-                    target = level/actual;
+                    target = level/std::max(0.00001, actual - k.feedbackThreshold);
                     break;
                 }
 
                 frameStats.targetGain = target;
                 frameStats.limitPower = k.limitPower;
 
+                float cut = 1;
                 if (actual > k.limitPower) {
-                    target = target*k.limitPower/actual;
+                    cut *= k.limitPower/actual;
                 }
+                if (expected > k.limitPower) {
+                    cut *= k.limitPower/expected;
+                }
+                target *= cut;
 
-                double factor = pow(0.9, k.dampen);
-                nextGain = curGain*(1 - factor) + target*factor;
+                double factor = k.dampen;
+                nextGain = curGain*factor + target*(1 - factor);
             }
         }
 

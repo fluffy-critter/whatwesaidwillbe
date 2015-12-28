@@ -44,7 +44,7 @@ public:
         std::map<Mode, double> levels;
 
         Knobs():
-            dampen(5),
+            dampen(0.9),
             feedbackThreshold(-1),
             limitPower(0.2),
             mode(M_GAIN)
