@@ -38,8 +38,9 @@ void reshapeFunc(int x, int y) {
 void displayFunc() {
     if (vis->onDisplay()) {
 	glutLeaveMainLoop();
+    } else {
+        glutPostRedisplay();
     }
-    glutPostRedisplay();
 }
 
 }
