@@ -12,7 +12,7 @@ Repeater::Repeater(const Options& opts, const Knobs& knobs):
     mOptions(opts),
     mKnobs(knobs),
     mKnobsNext(knobs),
-    mKnobsUpdated(false),
+    mKnobsCurrent(false),
     mState(S_STARTUP)
 {
 }
@@ -45,7 +45,7 @@ void Repeater::shutdown() {
 
 void Repeater::setKnobs(const Knobs& k) {
     mKnobsNext = k;
-    mKnobsUpdated = true;
+    mKnobsCurrent.clear();
 }
 
 void Repeater::getHistory(History& out) const {
@@ -142,7 +142,7 @@ int Repeater::run() {
     double curGain = 0, nextGain = 0;
 
     while (mState != S_GONE) {
-        while (mKnobsUpdated.fetch_and(false)) {
+        while (!mKnobsCurrent.test_and_set()) {
             mKnobs = mKnobsNext;
         }
         const Knobs& k = mKnobs;

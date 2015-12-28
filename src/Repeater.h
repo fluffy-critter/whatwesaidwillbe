@@ -1,7 +1,7 @@
 #pragma once
 
 #include <boost/thread/mutex.hpp>
-#include <boost/atomic.hpp>
+#include <atomic>
 
 #include <map>
 #include <memory>
@@ -124,9 +124,9 @@ private:
     Options mOptions;
 
     Knobs mKnobs, mKnobsNext;
-    boost::atomic<bool> mKnobsUpdated;
+    std::atomic_flag mKnobsCurrent;
 
-    boost::atomic<State> mState;
+    std::atomic<State> mState;
 
     mutable boost::mutex mHistoryMutex;
     History mHistory;
