@@ -49,7 +49,7 @@ void Repeater::setKnobs(const Knobs& k) {
 }
 
 void Repeater::getHistory(History& out) const {
-    boost::mutex::scoped_lock lock(mHistoryMutex);
+    std::lock_guard<std::mutex> lock(mHistoryMutex);
     out = mHistory;
 }
 
@@ -254,7 +254,7 @@ int Repeater::run() {
         frames = playBuf.play(frames);
 
         {
-            boost::mutex::scoped_lock lock(mHistoryMutex);
+            std::lock_guard<std::mutex> lock(mHistoryMutex);
 
             size_t histSize = mHistory.history.size();
             size_t dataPos = (recPos*histSize/drum.count()) % histSize;

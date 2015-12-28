@@ -1,9 +1,10 @@
 #pragma once
 
-#include <functional>
-
 #include "Repeater.h"
 #include "ShaderProgram.h"
+
+#include <functional>
+#include <vector>
 
 class Visualizer {
 public:

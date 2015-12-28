@@ -1,10 +1,10 @@
 #pragma once
 
-#include <boost/thread/mutex.hpp>
 #include <atomic>
-
 #include <map>
 #include <memory>
+#include <mutex>
+#include <vector>
 
 class Repeater {
 public:
@@ -128,7 +128,7 @@ private:
 
     std::atomic<State> mState;
 
-    mutable boost::mutex mHistoryMutex;
+    mutable std::mutex mHistoryMutex;
     History mHistory;
 
     // Current write position in the history
@@ -139,4 +139,3 @@ private:
     size_t mCurDataSamples;
 };
 
-    
